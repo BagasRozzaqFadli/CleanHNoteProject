@@ -1,0 +1,12 @@
+{
+  "name": "cleanhnote-db-setup",
+  "version": "1.0.0",
+  "description": "Setup database collections for CleanHNote app",
+  "main": "create-collections.js",
+  "scripts": {
+    "start": "node create-collections.js"
+  },
+  "dependencies": {
+    "node-appwrite": "^9.0.0"
+  }
+} 

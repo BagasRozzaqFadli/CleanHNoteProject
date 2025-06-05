@@ -1,0 +1,363 @@
+{
+    "projectId": "cleanhnoteproject",
+    "projectName": "CleanHNote",
+    "collections": [
+        {
+            "id": "users",
+            "name": "Users",
+            "permission": "document",
+            "attributes": [
+                {
+                    "key": "email",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "name",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "tenant_id",
+                    "type": "string",
+                    "required": false,
+                    "array": false
+                },
+                {
+                    "key": "created_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false
+                }
+            ]
+        },
+        {
+            "id": "teams",
+            "name": "Teams",
+            "permission": "document",
+            "attributes": [
+                {
+                    "key": "team_name",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "leader_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "invitation_code",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "created_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false
+                }
+            ]
+        },
+        {
+            "id": "team_members",
+            "name": "Team_Members",
+            "permission": "document",
+            "attributes": [
+                {
+                    "key": "user_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "team_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "role",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "joined_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false
+                }
+            ]
+        },
+        {
+            "id": "tasks",
+            "name": "Tasks",
+            "permission": "document",
+            "attributes": [
+                {
+                    "key": "title",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "description",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "assigned_to",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "team_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "due_date",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "status",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "created_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "updated_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false
+                }
+            ]
+        },
+        {
+            "id": "task_comments",
+            "name": "Task_Comments",
+            "permission": "document",
+            "attributes": [
+                {
+                    "key": "task_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "user_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "comment",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "created_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false
+                }
+            ]
+        },
+        {
+            "id": "notifications",
+            "name": "Notifications",
+            "permission": "document",
+            "attributes": [
+                {
+                    "key": "user_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "message",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "status",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "created_at",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "task_id",
+                    "type": "string",
+                    "required": false,
+                    "array": false
+                }
+            ]
+        },
+        {
+            "id": "subscriptions",
+            "name": "Subscriptions",
+            "permission": "document",
+            "attributes": [
+                {
+                    "key": "user_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "plan_type",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "plan_duration",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "start_date",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "end_date",
+                    "type": "datetime",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "payment_status",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "auto_renewal",
+                    "type": "boolean",
+                    "required": true,
+                    "array": false
+                }
+            ]
+        },
+        {
+            "id": "payments",
+            "name": "Payments",
+            "permission": "document",
+            "attributes": [
+                {
+                    "key": "user_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "subscription_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "amount",
+                    "type": "double",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "payment_method",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "payment_status",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "transaction_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "payment_proof",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                }
+            ]
+        },
+        {
+            "id": "cleaning_photos",
+            "name": "Cleaning_Photos",
+            "permission": "document",
+            "attributes": [
+                {
+                    "key": "task_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "user_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "team_id",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "photo_url",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "photo_type",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                },
+                {
+                    "key": "location_data",
+                    "type": "string",
+                    "required": true,
+                    "array": false
+                }
+            ]
+        }
+    ]
+} 
