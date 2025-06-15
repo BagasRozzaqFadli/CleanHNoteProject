@@ -14,13 +14,13 @@
 
 ### Iterasi 2: Manajemen Tugas & Peran (1 Minggu)
 - Total Tasks: 5
-- Tasks Selesai: 0
-- Progress Iterasi: 0%
-  - [ ] Dashboard dengan daftar tugas
-  - [ ] Pembuatan dan pengelolaan tugas
-  - [ ] Status tugas (selesai/belum)
-  - [ ] Panel khusus Free Plan
-  - [ ] Panel khusus Premium Plan
+- Tasks Selesai: 5
+- Progress Iterasi: 100%
+  - [✅] Dashboard dengan daftar tugas
+  - [✅] Pembuatan dan pengelolaan tugas
+  - [✅] Status tugas (selesai/belum)
+  - [✅] Panel khusus Free Plan
+  - [✅] Panel khusus Premium Plan
 
 ### Iterasi 3: Penugasan dan Notifikasi (1 Minggu)
 - Total Tasks: 5

@@ -1,25 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:appwrite/appwrite.dart';
+import 'package:provider/provider.dart';
 import '../../services/team_service.dart';
-import '../../appwrite_config.dart';
 
 class CreateTeamScreen extends StatefulWidget {
-  final String userId;
-
-  const CreateTeamScreen({Key? key, required this.userId}) : super(key: key);
+  const CreateTeamScreen({Key? key}) : super(key: key);
 
   @override
-  _CreateTeamScreenState createState() => _CreateTeamScreenState();
+  State<CreateTeamScreen> createState() => _CreateTeamScreenState();
 }
 
 class _CreateTeamScreenState extends State<CreateTeamScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _teamNameController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _teamNameController.dispose();
+    _nameController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -31,27 +30,31 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
     });
 
     try {
-      final teamService = TeamService(
-        Databases(AppwriteConfig.client),
-      );
-
+      final teamService = Provider.of<TeamService>(context, listen: false);
       await teamService.createTeam(
-        _teamNameController.text.trim(),
-        widget.userId,
+        _nameController.text.trim(),
+        _descriptionController.text.trim(),
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tim berhasil dibuat!')),
-        );
-        Navigator.pop(context, true);
-      }
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tim berhasil dibuat'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.pop(context);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal membuat tim: ${e.toString()}')),
-        );
-      }
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal membuat tim: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -72,12 +75,13 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
-                controller: _teamNameController,
+                controller: _nameController,
                 decoration: const InputDecoration(
                   labelText: 'Nama Tim',
+                  hintText: 'Masukkan nama tim',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
@@ -87,12 +91,38 @@ class _CreateTeamScreenState extends State<CreateTeamScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _createTeam,
-                child: _isLoading
-                    ? const CircularProgressIndicator()
-                    : const Text('Buat Tim'),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Deskripsi',
+                  hintText: 'Masukkan deskripsi tim (opsional)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _createTeam,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Buat Tim',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                ),
               ),
             ],
           ),

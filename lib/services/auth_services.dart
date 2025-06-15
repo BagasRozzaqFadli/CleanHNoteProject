@@ -5,11 +5,14 @@ import 'package:uuid/uuid.dart';
 import 'user_service.dart';
 import '../models/user.dart' as app_models;
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class AuthService {
   final Account _account = Account(AppwriteConfig.client);
   final UserService _userService = UserService(Databases(AppwriteConfig.client));
   final _uuid = Uuid();
+  models.Session? _cachedSession;
 
   Future<models.User> signUp(String email, String password, String name) async {
     try {
@@ -87,49 +90,127 @@ class AuthService {
     }
   }
 
-  Future<models.Session> signIn(String email, String password) async {
+  // Fungsi untuk menyimpan sesi ke SharedPreferences
+  Future<void> _saveSessionToCache(models.Session session) async {
     try {
-      debugPrint('Mencoba login dengan email: $email');
-      
-      // Coba hapus sesi yang aktif terlebih dahulu
-      try {
-        debugPrint('Mencoba menghapus sesi aktif...');
-        await _account.deleteSession(sessionId: 'current');
-        debugPrint('Berhasil menghapus sesi aktif');
-      } catch (e) {
-        debugPrint('Tidak ada sesi aktif untuk dihapus: $e');
-        // Abaikan error jika tidak ada sesi aktif
-      }
-
-      // Buat sesi baru
-      debugPrint('Membuat sesi baru...');
-      final response = await _account.createEmailPasswordSession(
-        email: email,
-        password: password,
-      );
-      debugPrint('Berhasil membuat sesi baru dengan ID: ${response.$id}');
-
-      return response;
-    } on AppwriteException catch (e) {
-      debugPrint('Appwrite error dalam proses login: ${e.message}');
-      if (e.type == 'user_invalid_credentials') {
-        throw Exception('Email atau password salah');
-      }
-      throw Exception('Gagal melakukan login: ${e.message}');
+      final prefs = await SharedPreferences.getInstance();
+      final sessionData = {
+        'id': session.$id,
+        'userId': session.userId,
+        'expire': session.$createdAt, // Gunakan createdAt sebagai referensi
+        'provider': session.provider,
+        'providerUid': session.providerUid,
+      };
+      await prefs.setString('cached_session', jsonEncode(sessionData));
+      _cachedSession = session;
+      debugPrint('Sesi berhasil disimpan ke cache');
     } catch (e) {
-      debugPrint('Error dalam proses login: $e');
-      throw Exception('Terjadi kesalahan saat login: $e');
+      debugPrint('Error saat menyimpan sesi ke cache: $e');
     }
+  }
+
+  // Fungsi untuk mendapatkan sesi dari SharedPreferences
+  Future<models.Session?> _getSessionFromCache() async {
+    try {
+      if (_cachedSession != null) {
+        return _cachedSession;
+      }
+      
+      final prefs = await SharedPreferences.getInstance();
+      final sessionJson = prefs.getString('cached_session');
+      if (sessionJson == null) return null;
+      
+      // Cek sesi aktif di server untuk memastikan masih valid
+      try {
+        final currentSession = await _account.getSession(sessionId: 'current');
+        _cachedSession = currentSession;
+        return currentSession;
+      } catch (e) {
+        // Sesi tidak valid, hapus dari cache
+        await prefs.remove('cached_session');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('Error saat mendapatkan sesi dari cache: $e');
+      return null;
+    }
+  }
+
+  Future<models.Session> signIn(String email, String password) async {
+    int maxRetries = 3;
+    int currentRetry = 0;
+    int retryDelay = 5000; // milliseconds - meningkatkan delay awal menjadi 5 detik
+    
+    // Coba dapatkan sesi dari cache terlebih dahulu
+    final cachedSession = await _getSessionFromCache();
+    if (cachedSession != null) {
+      debugPrint('Menggunakan sesi dari cache');
+      return cachedSession;
+    }
+    
+    while (currentRetry < maxRetries) {
+      try {
+        debugPrint('Mencoba login dengan email: $email (Percobaan ${currentRetry + 1}/${maxRetries})');
+        
+        // Buat sesi baru
+        debugPrint('Membuat sesi baru...');
+        final response = await _account.createEmailPasswordSession(
+          email: email,
+          password: password,
+        );
+        debugPrint('Berhasil membuat sesi baru dengan ID: ${response.$id}');
+        
+        // Simpan sesi ke cache
+        await _saveSessionToCache(response);
+        
+        return response;
+      } on AppwriteException catch (e) {
+        debugPrint('Appwrite error dalam proses login: ${e.message}');
+        
+        // Jika rate limit, tunggu dan coba lagi
+        if (e.message?.contains('Rate limit') == true && currentRetry < maxRetries - 1) {
+          currentRetry++;
+          debugPrint('Rate limit terdeteksi, menunggu ${retryDelay/1000} detik sebelum mencoba lagi...');
+          await Future.delayed(Duration(milliseconds: retryDelay));
+          retryDelay *= 2; // Exponential backoff
+          continue;
+        }
+        
+        if (e.type == 'user_invalid_credentials') {
+          throw AppwriteException(e.message, e.code, e.type);
+        }
+        throw e;
+      } catch (e) {
+        debugPrint('Error dalam proses login: $e');
+        throw Exception('Terjadi kesalahan saat login: $e');
+      }
+    }
+    
+    throw Exception('Gagal login setelah $maxRetries percobaan. Silakan coba lagi nanti.');
   }
 
   Future<void> signOut() async {
     try {
       debugPrint('Mencoba logout...');
-      await _account.deleteSession(sessionId: 'current');
+      
+      // Hapus sesi dari cache terlebih dahulu
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('cached_session');
+      _cachedSession = null;
+      
+      // Coba hapus sesi di server
+      try {
+        await _account.deleteSession(sessionId: 'current');
+        debugPrint('Berhasil logout dari server');
+      } catch (e) {
+        // Jika gagal menghapus sesi di server, abaikan karena sesi lokal sudah dihapus
+        debugPrint('Tidak dapat menghapus sesi di server: $e');
+      }
+      
       debugPrint('Berhasil logout');
     } catch (e) {
       debugPrint('Error saat logout: $e');
-      throw Exception('Terjadi kesalahan saat logout: $e');
+      // Tidak perlu throw exception karena sesi lokal sudah dihapus
     }
   }
 

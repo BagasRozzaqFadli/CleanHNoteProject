@@ -4,6 +4,7 @@ class Team {
   final String leaderId;
   final String invitationCode;
   final DateTime createdAt;
+  final int? memberCount;
 
   Team({
     required this.id,
@@ -11,15 +12,17 @@ class Team {
     required this.leaderId,
     required this.invitationCode,
     required this.createdAt,
+    this.memberCount,
   });
 
   factory Team.fromJson(Map<String, dynamic> json) {
     return Team(
-      id: json['\$id'] ?? '',
+      id: json['\$id'] ?? json['id'] ?? '',
       teamName: json['team_name'] ?? '',
       leaderId: json['leader_id'] ?? '',
       invitationCode: json['invitation_code'] ?? '',
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+      memberCount: json['memberCount'],
     );
   }
 
@@ -29,6 +32,7 @@ class Team {
       'leader_id': leaderId,
       'invitation_code': invitationCode,
       'created_at': createdAt.toIso8601String(),
+      'memberCount': memberCount,
     };
   }
 } 

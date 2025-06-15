@@ -115,6 +115,14 @@ function getStringSize(key) {
             return 20;
         case 'photo_type':
             return 20;
+        case 'task_type':
+            return 20;
+        case 'priority':
+            return 20;
+        case 'notification_type':
+            return 20;
+        case 'time_slot':
+            return 20;
         default:
             return 50; // Ukuran default yang lebih kecil
     }
@@ -132,7 +140,10 @@ async function updateCollections() {
                     { key: 'email', type: 'string', required: true },
                     { key: 'name', type: 'string', required: true },
                     { key: 'tenant_id', type: 'string', required: false },
-                    { key: 'created_at', type: 'datetime', required: true }
+                    { key: 'created_at', type: 'datetime', required: true },
+                    { key: 'isPremium', type: 'boolean', required: false },
+                    { key: 'premiumExpiryDate', type: 'datetime', required: false },
+                    { key: 'isAdmin', type: 'boolean', required: false }
                 ]
             },
             {
@@ -142,7 +153,8 @@ async function updateCollections() {
                     { key: 'team_name', type: 'string', required: true },
                     { key: 'leader_id', type: 'string', required: true },
                     { key: 'invitation_code', type: 'string', required: true },
-                    { key: 'created_at', type: 'datetime', required: true }
+                    { key: 'created_at', type: 'datetime', required: true },
+                    { key: 'description', type: 'string', required: false }
                 ]
             },
             {
@@ -162,11 +174,16 @@ async function updateCollections() {
                     { key: 'title', type: 'string', required: true },
                     { key: 'description', type: 'string', required: true },
                     { key: 'assigned_to', type: 'string', required: true },
-                    { key: 'team_id', type: 'string', required: true },
+                    { key: 'team_id', type: 'string', required: false }, // Opsional untuk tugas individu
+                    { key: 'task_type', type: 'string', required: true }, // 'team' atau 'personal'
                     { key: 'due_date', type: 'datetime', required: true },
-                    { key: 'status', type: 'string', required: true },
+                    { key: 'execution_time', type: 'string', required: false }, // Format: "HH:MM"
+                    { key: 'status', type: 'string', required: true }, // pending, inProgress, completed, cancelled
+                    { key: 'priority', type: 'string', required: false }, // low, medium, high
+                    { key: 'created_by', type: 'string', required: true }, // User ID pembuat tugas
                     { key: 'created_at', type: 'datetime', required: true },
-                    { key: 'updated_at', type: 'datetime', required: true }
+                    { key: 'updated_at', type: 'datetime', required: true },
+                    { key: 'completed_at', type: 'datetime', required: false }
                 ]
             },
             {
@@ -184,10 +201,29 @@ async function updateCollections() {
                 name: 'Notifications',
                 attributes: [
                     { key: 'user_id', type: 'string', required: true },
+                    { key: 'title', type: 'string', required: true },
                     { key: 'message', type: 'string', required: true },
-                    { key: 'status', type: 'string', required: true },
+                    { key: 'notification_type', type: 'string', required: true }, // task_reminder, team_update, system, etc
+                    { key: 'status', type: 'string', required: true }, // read, unread
                     { key: 'created_at', type: 'datetime', required: true },
-                    { key: 'task_id', type: 'string', required: false }
+                    { key: 'task_id', type: 'string', required: false },
+                    { key: 'team_id', type: 'string', required: false },
+                    { key: 'scheduled_for', type: 'datetime', required: false }, // Waktu notifikasi dijadwalkan
+                    { key: 'is_delivered', type: 'boolean', required: false }
+                ]
+            },
+            {
+                id: 'task_schedules',
+                name: 'Task_Schedules',
+                attributes: [
+                    { key: 'task_id', type: 'string', required: true },
+                    { key: 'user_id', type: 'string', required: true },
+                    { key: 'team_id', type: 'string', required: false },
+                    { key: 'execution_date', type: 'datetime', required: true },
+                    { key: 'time_slot', type: 'string', required: true }, // Format: "HH:MM-HH:MM" (contoh: "09:00-10:00")
+                    { key: 'reminder_time', type: 'datetime', required: false }, // Waktu pengingat
+                    { key: 'status', type: 'string', required: true }, // scheduled, in_progress, completed, cancelled
+                    { key: 'created_at', type: 'datetime', required: true }
                 ]
             },
             {
@@ -213,7 +249,10 @@ async function updateCollections() {
                     { key: 'payment_method', type: 'string', required: true },
                     { key: 'payment_status', type: 'string', required: true },
                     { key: 'transaction_id', type: 'string', required: true },
-                    { key: 'payment_proof', type: 'string', required: true }
+                    { key: 'payment_proof', type: 'string', required: true },
+                    { key: 'created_at', type: 'datetime', required: false },
+                    { key: 'verified_at', type: 'datetime', required: false },
+                    { key: 'duration_months', type: 'string', required: false }
                 ]
             },
             {
@@ -222,10 +261,12 @@ async function updateCollections() {
                 attributes: [
                     { key: 'task_id', type: 'string', required: true },
                     { key: 'user_id', type: 'string', required: true },
-                    { key: 'team_id', type: 'string', required: true },
+                    { key: 'team_id', type: 'string', required: false },
                     { key: 'photo_url', type: 'string', required: true },
-                    { key: 'photo_type', type: 'string', required: true },
-                    { key: 'location_data', type: 'string', required: true }
+                    { key: 'photo_type', type: 'string', required: true }, // before, after, progress
+                    { key: 'location_data', type: 'string', required: false },
+                    { key: 'created_at', type: 'datetime', required: true },
+                    { key: 'description', type: 'string', required: false }
                 ]
             }
         ];

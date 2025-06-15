@@ -1,284 +1,730 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../models/team.dart';
-import '../../models/team_member.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../../services/team_service.dart';
-import '../../services/user_service.dart';
-import 'package:appwrite/appwrite.dart';
-import '../../appwrite_config.dart';
+import '../../models/team_model.dart';
+import 'invite_member_screen.dart';
 
 class TeamDetailScreen extends StatefulWidget {
-  final Team team;
-  final String currentUserId;
+  final TeamModel team;
+  final bool isLeader;
 
   const TeamDetailScreen({
     Key? key,
     required this.team,
-    required this.currentUserId,
+    required this.isLeader,
   }) : super(key: key);
 
   @override
-  _TeamDetailScreenState createState() => _TeamDetailScreenState();
+  State<TeamDetailScreen> createState() => _TeamDetailScreenState();
 }
 
-class _TeamDetailScreenState extends State<TeamDetailScreen> {
-  final TeamService _teamService = TeamService(Databases(AppwriteConfig.client));
-  final UserService _userService = UserService(Databases(AppwriteConfig.client));
-  List<TeamMember> _members = [];
-  bool _isLoading = true;
+class _TeamDetailScreenState extends State<TeamDetailScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  bool _isLoading = false;
+  final Map<String, String> _memberNames = {};
+  String _leaderName = 'Memuat...';
 
   @override
   void initState() {
     super.initState();
-    _loadMembers();
+    _tabController = TabController(length: 2, vsync: this);
+    _loadMemberNames();
+    _loadLeaderName();
   }
 
-  Future<void> _loadMembers() async {
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadLeaderName() async {
     try {
-      setState(() {
-        _isLoading = true;
-      });
-
-      final members = await _teamService.getTeamMembers(widget.team.id);
+      final teamService = Provider.of<TeamService>(context, listen: false);
+      final name = await teamService.getUserName(widget.team.createdBy);
       
-      // Dapatkan data user untuk setiap member
-      for (var member in members) {
-        try {
-          final user = await _userService.getUser(member.userId);
-          member.name = user.name;
-          member.email = user.email;
-        } catch (e) {
-          // Jika gagal mendapatkan data user, gunakan userId sebagai nama
-          member.name = 'User ${member.userId}';
-        }
-      }
-
-      setState(() {
-        _members = members;
-        _isLoading = false;
-      });
-    } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal memuat anggota tim: ${e.toString()}')),
-        );
+        setState(() {
+          _leaderName = name;
+        });
       }
-      setState(() {
-        _isLoading = false;
-      });
+    } catch (e) {
+      print('Error loading leader name: $e');
+    }
+  }
+
+  Future<void> _loadMemberNames() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final teamService = Provider.of<TeamService>(context, listen: false);
+      final members = await teamService.getTeamMembersWithNames(widget.team.id);
+      
+      if (mounted) {
+        setState(() {
+          _memberNames.clear();
+          _memberNames.addAll(members);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading member names: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
   Future<void> _leaveTeam() async {
-    try {
-      await _teamService.leaveTeam(widget.currentUserId, widget.team.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Berhasil keluar dari tim')),
-        );
-        Navigator.pop(context, true); // true menandakan perlu refresh list tim
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
-      }
-    }
-  }
+    setState(() {
+      _isLoading = true;
+    });
 
-  Future<void> _deleteTeam() async {
-    // Tampilkan dialog konfirmasi
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Hapus Tim'),
-          content: const Text(
-            'Apakah Anda yakin ingin menghapus tim ini? '
-            'Semua anggota akan dihapus dan tindakan ini tidak dapat dibatalkan.',
+    try {
+      final teamService = Provider.of<TeamService>(context, listen: false);
+      final success = await teamService.leaveTeam(widget.team.id);
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Berhasil keluar dari tim'),
+            backgroundColor: Colors.green,
           ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Batal'),
-              onPressed: () => Navigator.of(context).pop(false),
-            ),
-            TextButton(
-              child: const Text(
-                'Hapus',
-                style: TextStyle(color: Colors.red),
-              ),
-              onPressed: () => Navigator.of(context).pop(true),
-            ),
-          ],
         );
-      },
-    );
-
-    if (confirm != true) return;
-
-    try {
-      await _teamService.deleteTeam(widget.team.id, widget.currentUserId);
-      if (mounted) {
+        Navigator.pop(context); // Kembali ke halaman daftar tim
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tim berhasil dihapus')),
+          const SnackBar(
+            content: Text('Gagal keluar dari tim. Leader tim tidak dapat keluar.'),
+            backgroundColor: Colors.red,
+          ),
         );
-        Navigator.pop(context, true); // true menandakan perlu refresh list tim
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
-    }
-  }
-
-  Future<void> _copyInvitationCode() async {
-    await Clipboard.setData(ClipboardData(text: widget.team.invitationCode));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kode undangan berhasil disalin')),
-      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isLeader = widget.team.leaderId == widget.currentUserId;
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.team.teamName),
-        actions: [
-          if (isLeader)
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: _deleteTeam,
-              tooltip: 'Hapus Tim',
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.exit_to_app),
-              onPressed: _leaveTeam,
-              tooltip: 'Keluar dari Tim',
-            ),
-        ],
+        title: Text(widget.team.name),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Anggota'),
+            Tab(text: 'Info'),
+          ],
+        ),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _buildMembersTab(),
+                _buildInfoTab(),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildMembersTab() {
+    return Column(
+      children: [
+        if (widget.isLeader)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => InviteMemberScreen(
+                            teamId: widget.team.id,
+                          ),
+                        ),
+                      ).then((_) => _loadMemberNames());
+                    },
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('Undang Anggota'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      _showInvitationCodeDialog();
+                    },
+                    icon: const Icon(Icons.share),
+                    label: const Text('Kode Undangan'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        // Menampilkan pembuat tim di bagian atas
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Card(
+            color: Colors.blue.shade50,
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Colors.blue,
+                child: const Icon(Icons.person, color: Colors.white),
+              ),
+              title: Text(_leaderName),
+              subtitle: const Text('Pembuat Tim'),
+              trailing: const Icon(Icons.star, color: Colors.amber),
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.0),
+          child: Divider(thickness: 1),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Anggota Tim',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: _memberNames.isEmpty
+              ? const Center(
+                  child: Text('Belum ada anggota tim'),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  itemCount: _memberNames.length,
+                  itemBuilder: (context, index) {
+                    final memberId = _memberNames.keys.elementAt(index);
+                    final memberName = _memberNames[memberId] ?? 'Unknown User';
+                    final isCreator = memberId == widget.team.createdBy;
+                    
+                    // Skip the leader as they're already shown above
+                    if (isCreator) {
+                      return const SizedBox.shrink();
+                    }
+                    
+                    return Card(
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          child: Text(memberName.substring(0, 1)),
+                        ),
+                        title: Text(memberName),
+                        subtitle: const Text('Anggota'),
+                        trailing: widget.isLeader
+                            ? IconButton(
+                                icon: const Icon(Icons.remove_circle_outline),
+                                color: Colors.red,
+                                onPressed: () => _showRemoveMemberDialog(memberId),
+                              )
+                            : null,
+                      ),
+                    );
+                  },
+                ),
+        ),
+        // Tombol keluar tim (hanya untuk anggota, bukan leader)
+        if (!widget.isLeader)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton.icon(
+              onPressed: () => _showLeaveTeamDialog(),
+              icon: const Icon(Icons.exit_to_app),
+              label: const Text('Keluar dari Tim'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _showLeaveTeamDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Keluar dari Tim'),
+        content: Text(
+          'Apakah Anda yakin ingin keluar dari tim ${widget.team.name}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _leaveTeam();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Info Tim
-                  Card(
-                    margin: const EdgeInsets.all(16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Informasi Tim',
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                              if (isLeader)
-                                TextButton.icon(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  label: const Text(
-                                    'Hapus Tim',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                  onPressed: _deleteTeam,
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text('Dibuat pada: ${widget.team.createdAt.toString()}'),
-                          if (isLeader) ...[
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Kode Undangan: ${widget.team.invitationCode}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.copy),
-                                  onPressed: _copyInvitationCode,
-                                  tooltip: 'Salin Kode',
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
+                  const Text(
+                    'Informasi Tim',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  _buildInfoRow('Nama', widget.team.name),
+                  _buildInfoRow('Pembuat', _leaderName),
+                  _buildInfoRow(
+                    'Dibuat pada',
+                    DateFormat('dd MMM yyyy').format(widget.team.createdAt),
+                  ),
+                  _buildInfoRow(
+                    'Jumlah Anggota',
+                    '${_memberNames.length} anggota',
+                  ),
+                  if (widget.team.description.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Deskripsi:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-
-                  // Daftar Anggota
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      'Anggota Tim',
-                      style: Theme.of(context).textTheme.titleLarge,
+                    const SizedBox(height: 4),
+                    Text(widget.team.description),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Tugas Tim',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _members.length,
-                    itemBuilder: (context, index) {
-                      final member = _members[index];
-                      final isCurrentUser = member.userId == widget.currentUserId;
-                      
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 4,
-                        ),
-                        child: ListTile(
-                          title: Text(
-                            member.name ?? 'User ${member.userId}',
-                            style: TextStyle(
-                              fontWeight: isCurrentUser
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (member.email != null)
-                                Text(member.email!),
-                              Text(
-                                member.role == 'leader' ? 'Leader' : 'Member',
-                                style: TextStyle(
-                                  color: member.role == 'leader'
-                                      ? Colors.blue
-                                      : Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                          trailing: isCurrentUser
-                              ? const Chip(label: Text('Anda'))
-                              : null,
-                        ),
-                      );
-                    },
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        _showTeamTasksDialog();
+                      },
+                      icon: const Icon(Icons.assignment),
+                      label: const Text('Lihat Tugas Tim'),
+                    ),
                   ),
                 ],
               ),
             ),
+          ),
+          if (widget.isLeader) ...[
+            const SizedBox(height: 32),
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: _showDeleteTeamDialog,
+                icon: const Icon(Icons.delete_forever),
+                label: const Text('Hapus Tim'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showInvitationCodeDialog() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final teamService = Provider.of<TeamService>(context, listen: false);
+      final invitationCode = await teamService.getTeamInvitationCode(widget.team.id);
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      if (invitationCode != null) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Kode Undangan ${widget.team.name}'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Bagikan kode ini kepada anggota tim:'),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        invitationCode,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.copy),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: invitationCode));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Kode undangan disalin'),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              if (widget.isLeader)
+                TextButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    _regenerateInvitationCode();
+                  },
+                  child: const Text('Buat Kode Baru'),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Tutup'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal mendapatkan kode undangan'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _regenerateInvitationCode() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final teamService = Provider.of<TeamService>(context, listen: false);
+      final newCode = await teamService.regenerateInvitationCode(widget.team.id);
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      if (newCode != null) {
+        _showInvitationCodeDialog();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal membuat kode undangan baru'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() {
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showTeamTasksDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Tugas Tim ${widget.team.name}'),
+        content: const Text(
+          'Fitur tugas tim sedang dalam pengembangan.',
+          textAlign: TextAlign.center,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(value),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRemoveMemberDialog(String memberId) {
+    final memberName = _memberNames[memberId] ?? 'anggota ini';
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Anggota'),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus $memberName dari tim?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              setState(() {
+                _isLoading = true;
+              });
+              
+              try {
+                final teamService = Provider.of<TeamService>(context, listen: false);
+                final success = await teamService.removeMember(widget.team.id, memberId);
+                
+                if (success && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Anggota berhasil dihapus'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  
+                  // Refresh member names
+                  _loadMemberNames();
+                } else if (mounted) {
+                  setState(() {
+                    _isLoading = false;
+                  });
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Gagal menghapus anggota'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  setState(() {
+                    _isLoading = false;
+                  });
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteTeamDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Tim'),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus tim ${widget.team.name}? Tindakan ini tidak dapat dibatalkan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              setState(() {
+                _isLoading = true;
+              });
+              
+              try {
+                final teamService = Provider.of<TeamService>(context, listen: false);
+                final success = await teamService.deleteTeam(widget.team.id);
+                
+                if (success && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Tim berhasil dihapus'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  
+                  // Navigate back to team list
+                  Navigator.pop(context);
+                } else if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Gagal menghapus tim'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } finally {
+                if (mounted) {
+                  setState(() {
+                    _isLoading = false;
+                  });
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
     );
   }
 } 
