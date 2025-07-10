@@ -132,28 +132,43 @@ class TaskService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final response = await databases.listDocuments(
+      // Ambil tugas tim dari koleksi team_tasks
+      final teamTasksResponse = await databases.listDocuments(
         databaseId: databaseId,
-        collectionId: tasksCollectionId,
+        collectionId: 'team_tasks',
         queries: [
           Query.equal('assigned_to', userId),
           Query.orderDesc('created_at'),
         ],
       );
-
-      _tasks = response.documents.map((doc) {
-        return TaskModel.fromMap({
+      
+      // Konversi dokumen team_tasks ke TaskModel
+      final teamTasks = teamTasksResponse.documents.map((doc) {
+        final data = {
           ...doc.data,
           'id': doc.$id,
-        });
+          'task_type': 'team', // Pastikan task_type adalah 'team'
+        };
+        return TaskModel.fromMap(data);
       }).toList();
       
+      _tasks = teamTasks;
       _isLoading = false;
       notifyListeners();
       return _tasks;
     } catch (e) {
       _isLoading = false;
       _error = 'Gagal memuat tugas yang ditugaskan: $e';
+      debugPrint('=== ERROR SAAT MENGAMBIL TUGAS YANG DITUGASKAN ===');
+      debugPrint('Error type: ${e.runtimeType}');
+      debugPrint('Error detail: $e');
+      
+      if (e is AppwriteException) {
+        debugPrint('Appwrite error code: ${e.code}');
+        debugPrint('Appwrite error type: ${e.type}');
+        debugPrint('Appwrite error message: ${e.message}');
+      }
+      
       notifyListeners();
       return [];
     }
@@ -187,12 +202,12 @@ class TaskService extends ChangeNotifier {
           'assigned_to': task.assignedTo,
           'team_id': task.teamId ?? '',
           'task_type': task.taskType == TaskType.personal ? 'personal' : 'team',
-          'due_date': task.dueDate.toIso8601String(),
+          'due_date': task.dueDate.toUtc().toIso8601String(),
           'execution_time': task.executionTime,
           'status': task.status.index.toString(),
           'priority': task.priority != null ? task.priority!.name.toLowerCase() : 'medium',
-          'created_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
         },
       );
 
@@ -259,15 +274,15 @@ class TaskService extends ChangeNotifier {
         'assigned_to': task.assignedTo,
         'team_id': task.teamId ?? '',
         'task_type': task.taskType == TaskType.personal ? 'personal' : 'team',
-        'due_date': task.dueDate.toIso8601String(),
+        'due_date': task.dueDate.toUtc().toIso8601String(),
         'execution_time': task.executionTime,
         'status': task.status.index.toString(),
         'priority': task.priority != null ? task.priority!.name.toLowerCase() : 'medium',
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
       };
       
       if (task.completedAt != null) {
-        data['completed_at'] = task.completedAt!.toIso8601String();
+        data['completed_at'] = task.completedAt!.toUtc().toIso8601String();
       }
       
       debugPrint('Mengirim update ke database dengan data: $data');
@@ -325,20 +340,56 @@ class TaskService extends ChangeNotifier {
   Future<TaskModel> getTaskById(String taskId) async {
     debugPrint('=== MENGAMBIL TUGAS BERDASARKAN ID ===');
     debugPrint('Task ID: $taskId');
+    debugPrint('Database ID: $databaseId');
+    debugPrint('Tasks Collection ID: $tasksCollectionId');
     
     try {
-      final response = await databases.getDocument(
-        databaseId: databaseId,
-        collectionId: tasksCollectionId,
-        documentId: taskId,
-      );
-      
-      debugPrint('Berhasil mendapatkan tugas dengan ID: ${response.$id}');
-      
-      return TaskModel.fromMap({
-        ...response.data,
-        'id': response.$id,
-      });
+      // Coba cari di koleksi tasks terlebih dahulu
+      try {
+        debugPrint('Mencoba mencari di koleksi tasks...');
+        final response = await databases.getDocument(
+          databaseId: databaseId,
+          collectionId: tasksCollectionId,
+          documentId: taskId,
+        );
+        
+        debugPrint('Berhasil mendapatkan tugas personal dengan ID: ${response.$id}');
+        debugPrint('Data tugas: ${response.data}');
+        
+        final taskModel = TaskModel.fromMap({
+          ...response.data,
+          'id': response.$id,
+        });
+        debugPrint('TaskModel berhasil dibuat: ${taskModel.id} - ${taskModel.title}');
+        return taskModel;
+      } catch (e) {
+        // Jika tidak ditemukan di tasks, coba cari di team_tasks
+        debugPrint('Tugas tidak ditemukan di koleksi personal, mencoba di koleksi tim...');
+        debugPrint('Error saat mencari di koleksi personal: $e');
+        
+        if (e is AppwriteException) {
+          debugPrint('Appwrite error code: ${e.code}');
+          debugPrint('Appwrite error type: ${e.type}');
+          debugPrint('Appwrite error message: ${e.message}');
+        }
+        
+        final teamResponse = await databases.getDocument(
+          databaseId: databaseId,
+          collectionId: 'team_tasks',
+          documentId: taskId,
+        );
+        
+        debugPrint('Berhasil mendapatkan tugas tim dengan ID: ${teamResponse.$id}');
+        debugPrint('Data tugas tim: ${teamResponse.data}');
+        
+        final taskModel = TaskModel.fromMap({
+          ...teamResponse.data,
+          'id': teamResponse.$id,
+          'task_type': 'team', // Pastikan task_type adalah 'team'
+        });
+        debugPrint('TaskModel tim berhasil dibuat: ${taskModel.id} - ${taskModel.title}');
+        return taskModel;
+      }
     } catch (e) {
       debugPrint('=== ERROR SAAT MENGAMBIL TUGAS BERDASARKAN ID ===');
       debugPrint('Error type: ${e.runtimeType}');
@@ -390,8 +441,8 @@ class TaskService extends ChangeNotifier {
         documentId: taskId,
         data: {
           'status': newStatus.index.toString(), // Konversi ke string untuk menghindari masalah tipe data
-          'updated_at': DateTime.now().toIso8601String(),
-          if (completedAt != null) 'completed_at': completedAt.toIso8601String(),
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+          if (completedAt != null) 'completed_at': completedAt.toUtc().toIso8601String(),
         },
       );
       debugPrint('Update berhasil dikirim ke database');
@@ -456,4 +507,4 @@ class TaskService extends ChangeNotifier {
       return false;
     }
   }
-} 
+}

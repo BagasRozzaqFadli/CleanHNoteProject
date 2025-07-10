@@ -36,13 +36,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   @override
   void initState() {
     super.initState();
+    debugPrint('TaskDetailScreen: initState called');
     if (widget.task != null) {
+      debugPrint('TaskDetailScreen: Using provided task: ${widget.task!.id} - ${widget.task!.title}');
       _task = widget.task;
       _initializeControllers();
-    } else {
+    } else if (widget.taskId != null) {
+      debugPrint('TaskDetailScreen: No task provided, loading by ID: ${widget.taskId}');
       _task = null;
       _isLoadingTask = true;
-      _loadTaskDetails();
+      // Gunakan Future.microtask untuk memastikan context tersedia saat _loadTaskDetails dipanggil
+      Future.microtask(() => _loadTaskDetails());
+    } else {
+      debugPrint('TaskDetailScreen: ERROR - Neither task nor taskId provided');
+      _task = null;
+      _isLoadingTask = false;
     }
   }
 
@@ -63,24 +71,37 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   Future<void> _loadTaskDetails() async {
-    if (widget.taskId == null) return;
+    if (widget.taskId == null) {
+      debugPrint('TaskDetailScreen: taskId is null, skipping load');
+      return;
+    }
     
+    debugPrint('TaskDetailScreen: Loading task details for ID: ${widget.taskId}');
     setState(() {
       _isLoadingTask = true;
     });
     
     try {
+      debugPrint('TaskDetailScreen: Getting TaskService from provider');
       final taskService = Provider.of<TaskService>(context, listen: false);
+      debugPrint('TaskDetailScreen: Calling getTaskById with ID: ${widget.taskId}');
       final task = await taskService.getTaskById(widget.taskId!);
+      debugPrint('TaskDetailScreen: Task loaded successfully: ${task.id} - ${task.title}');
       
       setState(() {
         _task = task;
         _isLoadingTask = false;
       });
       
+      debugPrint('TaskDetailScreen: Initializing controllers');
       _initializeControllers();
     } catch (e) {
-      debugPrint('Error loading task details: $e');
+      debugPrint('TaskDetailScreen: ERROR loading task details: $e');
+      debugPrint('TaskDetailScreen: Error type: ${e.runtimeType}');
+      if (e is Exception) {
+        debugPrint('TaskDetailScreen: Exception message: ${e.toString()}');
+      }
+      
       setState(() {
         _isLoadingTask = false;
       });
@@ -90,6 +111,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           SnackBar(
             content: Text('Gagal memuat detail tugas: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -501,6 +523,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 color: statusColor,
                                 fontWeight: FontWeight.bold,
                               ),
+                              overflow: TextOverflow.visible,
                             ),
                           ],
                         ),
@@ -521,6 +544,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                 color: priorityColor,
                                 fontWeight: FontWeight.bold,
                               ),
+                              overflow: TextOverflow.visible,
                             ),
                           ],
                         ),
@@ -533,6 +557,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 2,
                     ),
                     const SizedBox(height: 8),
                     const Divider(),
@@ -545,74 +571,103 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(_task!.description),
+                    Text(
+                      _task!.description,
+                      // Mengubah overflow menjadi visible dan menghapus maxLines
+                      // agar teks dapat ditampilkan sepenuhnya
+                      overflow: TextOverflow.visible,
+                    ),
                     const SizedBox(height: 16),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.calendar_today, size: 16),
                         const SizedBox(width: 8),
-                        Text(
-                          'Tenggat: ${DateFormat('dd MMMM yyyy').format(_task!.dueDate)}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
+                        Flexible(
+                          child: Text(
+                            'Tenggat: ${DateFormat('dd MMMM yyyy').format(_task!.dueDate)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.visible,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.access_time, size: 16),
                         const SizedBox(width: 8),
-                        Text(
-                          'Waktu Pelaksanaan: ${_task!.executionTime ?? "09:00"}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
+                        Flexible(
+                          child: Text(
+                            'Waktu Pelaksanaan: ${_task!.executionTime ?? "09:00"}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.visible,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.person, size: 16),
                         const SizedBox(width: 8),
-                        Text(
-                          'Ditugaskan kepada: ${_task!.assignedTo ?? "Tidak Ada"}',
+                        Flexible(
+                          child: Text(
+                            'Ditugaskan kepada: ${_task!.assignedTo ?? "Tidak Ada"}',
+                            overflow: TextOverflow.visible,
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.access_time, size: 16),
                         const SizedBox(width: 8),
-                        Text(
-                          'Dibuat: ${DateFormat('dd MMMM yyyy').format(_task!.createdAt)}',
+                        Flexible(
+                          child: Text(
+                            'Dibuat: ${DateFormat('dd MMMM yyyy').format(_task!.createdAt)}',
+                            overflow: TextOverflow.visible,
+                          ),
                         ),
                       ],
                     ),
-                    if (_task!.updatedAt != _task!.createdAt) ...[
+                    if (_task!.updatedAt != _task!.createdAt) ...[                      
                       const SizedBox(height: 8),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Icon(Icons.update, size: 16),
                           const SizedBox(width: 8),
-                          Text(
-                            'Diupdate: ${DateFormat('dd MMMM yyyy').format(_task!.updatedAt)}',
+                          Flexible(
+                            child: Text(
+                              'Diupdate: ${DateFormat('dd MMMM yyyy').format(_task!.updatedAt)}',
+                              overflow: TextOverflow.visible,
+                            ),
                           ),
                         ],
                       ),
                     ],
-                    if (_task!.completedAt != null) ...[
+                    if (_task!.completedAt != null) ...[                      
                       const SizedBox(height: 8),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Icon(Icons.check_circle, size: 16, color: Colors.green),
                           const SizedBox(width: 8),
-                          Text(
-                            'Diselesaikan: ${DateFormat('dd MMMM yyyy').format(_task!.completedAt!)}',
-                            style: const TextStyle(color: Colors.green),
+                          Flexible(
+                            child: Text(
+                              'Diselesaikan: ${DateFormat('dd MMMM yyyy').format(_task!.completedAt!)}',
+                              style: const TextStyle(color: Colors.green),
+                              overflow: TextOverflow.visible,
+                            ),
                           ),
                         ],
                       ),
@@ -630,8 +685,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            Wrap(
+              alignment: WrapAlignment.spaceEvenly,
+              spacing: 8.0,
+              runSpacing: 8.0,
               children: [
                 if (_task!.status != TaskStatus.pending)
                   _buildStatusButton(
@@ -670,19 +727,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   }
 
   Widget _buildStatusButton(String label, Color color, IconData icon, VoidCallback onPressed) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-      child: ElevatedButton.icon(
-        onPressed: () => _confirmStatusChange(label, color, onPressed),
-        icon: Icon(icon, color: Colors.white, size: 18),
-        label: Text(label, style: const TextStyle(fontSize: 12)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+    return ElevatedButton.icon(
+      onPressed: () => _confirmStatusChange(label, color, onPressed),
+      icon: Icon(icon, color: Colors.white, size: 16),
+      label: Text(
+        label, 
+        style: const TextStyle(fontSize: 12),
+        overflow: TextOverflow.visible,
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        minimumSize: const Size(0, 36),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
         ),
       ),
     );
@@ -762,14 +821,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     border: OutlineInputBorder(),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        DateFormat('dd/MM/yyyy').format(_dueDate),
-                      ),
-                      const Icon(Icons.calendar_today),
-                    ],
-                  ),
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            DateFormat('dd/MM/yyyy').format(_dueDate),
+                            overflow: TextOverflow.visible,
+                          ),
+                        ),
+                        const Icon(Icons.calendar_today),
+                      ],
+                    ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -781,12 +843,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     border: OutlineInputBorder(),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(_executionTime),
-                      const Icon(Icons.access_time),
-                    ],
-                  ),
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _executionTime,
+                            overflow: TextOverflow.visible,
+                          ),
+                        ),
+                        const Icon(Icons.access_time),
+                      ],
+                    ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -800,6 +867,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   return DropdownMenuItem<TaskPriority>(
                     value: priority,
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
                           width: 16,
@@ -810,7 +878,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(priority.name),
+                        Flexible(
+                          child: Text(
+                            priority.name,
+                            overflow: TextOverflow.visible,
+                          ),
+                        ),
                       ],
                     ),
                   );

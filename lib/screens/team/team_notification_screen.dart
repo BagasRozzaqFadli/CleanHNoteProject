@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../services/team_service.dart';
 import '../../models/team_notification.dart';
+import 'team_task_detail_screen.dart';
 
 class TeamNotificationScreen extends StatefulWidget {
   const TeamNotificationScreen({Key? key}) : super(key: key);
@@ -126,7 +127,7 @@ class _TeamNotificationScreenState extends State<TeamNotificationScreen> {
             color: notification.isRead ? null : Colors.blue.shade50,
             child: ListTile(
               contentPadding: const EdgeInsets.all(16.0),
-              leading: _getNotificationIcon(notification.type),
+              leading: _getNotificationIcon(notification.notificationType),
               title: Text(
                 notification.title,
                 style: const TextStyle(
@@ -159,8 +160,8 @@ class _TeamNotificationScreenState extends State<TeamNotificationScreen> {
     );
   }
 
-  Widget _getNotificationIcon(String type) {
-    switch (type) {
+  Widget _getNotificationIcon(String notificationType) {
+    switch (notificationType) {
       case 'task_assigned':
         return CircleAvatar(
           backgroundColor: Colors.blue.shade100,
@@ -190,8 +191,8 @@ class _TeamNotificationScreenState extends State<TeamNotificationScreen> {
   }
 
   void _handleNotificationTap(TeamNotification notification) async {
-    if (notification.type == 'task_assigned' || notification.type == 'task_completed') {
-      if (notification.relatedEntityId != null) {
+    if (notification.notificationType == 'task_assigned' || notification.notificationType == 'task_completed') {
+      if (notification.taskId != null && notification.teamId != null) {
         try {
           setState(() {
             _isLoading = true;
@@ -199,15 +200,24 @@ class _TeamNotificationScreenState extends State<TeamNotificationScreen> {
           
           // Mendapatkan detail tugas dari service
           final teamService = Provider.of<TeamService>(context, listen: false);
-          final task = await teamService.getTaskById(notification.relatedEntityId!);
+          final task = await teamService.getTaskById(notification.taskId!);
           
           setState(() {
             _isLoading = false;
           });
           
           if (task != null && mounted) {
-            // Tampilkan detail tugas dalam dialog
-            showTaskDetailsDialog(task);
+            // Navigasi ke halaman detail tugas
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TeamTaskDetailScreen(
+                  taskId: notification.taskId!,
+                  teamId: notification.teamId!,
+                  isLeader: false, // Akan diupdate di TeamTaskDetailScreen berdasarkan currentUserId
+                ),
+              ),
+            );
           } else if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -230,36 +240,18 @@ class _TeamNotificationScreenState extends State<TeamNotificationScreen> {
             );
           }
         }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Informasi tugas tidak lengkap'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
   
-  void showTaskDetailsDialog(Map<String, dynamic> task) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(task['title'] ?? 'Detail Tugas'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Deskripsi: ${task['description'] ?? ''}'),
-              const SizedBox(height: 8),
-              Text('Status: ${task['status'] ?? 'pending'}'),
-              const SizedBox(height: 8),
-              if (task['due_date'] != null)
-                Text('Tenggat: ${DateFormat('dd MMM yyyy').format(DateTime.parse(task['due_date']))}'),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tutup'),
-          ),
-        ],
-      ),
-    );
-  }
-} 
+  // Metode showTaskDetailsDialog tidak lagi digunakan karena navigasi langsung ke TeamTaskDetailScreen
+}

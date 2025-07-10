@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 import '../models/task_model.dart';
@@ -89,185 +89,64 @@ class NotificationService {
   static final NotificationService _instance = NotificationService._();
   static NotificationService get instance => _instance;
 
-  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
+  // final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+  //     FlutterLocalNotificationsPlugin();
 
   NotificationService._() {
-    _initializeNotifications();
+    // _initializeNotifications();
   }
 
   Future<void> _initializeNotifications() async {
     tz_data.initializeTimeZones();
 
-    const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    // Kode inisialisasi notifikasi dikomentari
+    // const AndroidInitializationSettings initializationSettingsAndroid =
+    //     AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    final DarwinInitializationSettings initializationSettingsIOS =
-        DarwinInitializationSettings(
-      requestSoundPermission: true,
-      requestBadgePermission: true,
-      requestAlertPermission: true,
-      onDidReceiveLocalNotification: (int id, String? title, String? body, String? payload) async {
-        // Handle iOS notification
-      },
-    );
+    // final DarwinInitializationSettings initializationSettingsIOS =
+    //     DarwinInitializationSettings(
+    //   requestSoundPermission: true,
+    //   requestBadgePermission: true,
+    //   requestAlertPermission: true,
+    //   onDidReceiveLocalNotification: (int id, String? title, String? body, String? payload) async {
+    //     // Handle iOS notification
+    //   },
+    // );
 
-    final InitializationSettings initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
+    // final InitializationSettings initializationSettings = InitializationSettings(
+    //   android: initializationSettingsAndroid,
+    //   iOS: initializationSettingsIOS,
+    // );
 
-    await _flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        // Handle notification tap
-      },
-    );
+    // await _flutterLocalNotificationsPlugin.initialize(
+    //   initializationSettings,
+    //   onDidReceiveNotificationResponse: (NotificationResponse response) {
+    //     // Handle notification tap
+    //   },
+    // );
   }
 
-  // Menjadwalkan notifikasi untuk tugas
+  // Menjadwalkan notifikasi untuk tugas - dinonaktifkan sementara
   Future<void> scheduleTaskNotification(TaskModel task) async {
-    // Jadwalkan notifikasi 1 hari sebelum tenggat waktu
-    final notificationTime = task.dueDate.subtract(const Duration(days: 1));
-    
-    // Jika waktu notifikasi sudah lewat, jangan jadwalkan
-    if (notificationTime.isBefore(DateTime.now())) {
-      return;
-    }
-
-    await _flutterLocalNotificationsPlugin.zonedSchedule(
-      task.id.hashCode, // ID unik berdasarkan ID tugas
-      'Pengingat Tugas',
-      '${task.title} jatuh tempo besok',
-      tz.TZDateTime.from(notificationTime, tz.local),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'task_reminder_channel',
-          'Pengingat Tugas',
-          channelDescription: 'Notifikasi untuk mengingatkan tenggat waktu tugas',
-          importance: Importance.high,
-          priority: Priority.high,
-          color: Colors.blue,
-        ),
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      payload: task.id,
-    );
-
-    // Jadwalkan notifikasi pada hari tenggat waktu
-    final dueTimeStr = task.executionTime ?? "09:00";
-    final dueTimeParts = dueTimeStr.split(":");
-    final dueHour = int.tryParse(dueTimeParts[0]) ?? 9;
-    final dueMinute = dueTimeParts.length > 1 ? int.tryParse(dueTimeParts[1]) ?? 0 : 0;
-    
-    final dueDateTime = DateTime(
-      task.dueDate.year,
-      task.dueDate.month,
-      task.dueDate.day,
-      dueHour,
-      dueMinute,
-    );
-    
-    // Jadwalkan notifikasi 1 jam sebelum waktu pelaksanaan
-    final executionReminderTime = dueDateTime.subtract(const Duration(hours: 1));
-    
-    if (executionReminderTime.isAfter(DateTime.now())) {
-      await _flutterLocalNotificationsPlugin.zonedSchedule(
-        (task.id + 'execution').hashCode, // ID unik berbeda
-        'Tugas Akan Segera Dimulai',
-        '${task.title} akan dimulai dalam 1 jam (${dueTimeStr})',
-        tz.TZDateTime.from(executionReminderTime, tz.local),
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'task_execution_channel',
-            'Waktu Pelaksanaan Tugas',
-            channelDescription: 'Notifikasi untuk tugas yang akan segera dimulai',
-            importance: Importance.high,
-            priority: Priority.high,
-            color: Colors.orange,
-          ),
-          iOS: DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-          ),
-        ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        payload: task.id,
-      );
-    }
-
-    // Jadwalkan notifikasi pada waktu pelaksanaan
-    if (dueDateTime.isAfter(DateTime.now())) {
-      await _flutterLocalNotificationsPlugin.zonedSchedule(
-        (task.id + 'due').hashCode, // ID unik berbeda
-        'Waktu Melaksanakan Tugas',
-        'Saatnya mengerjakan tugas: ${task.title}',
-        tz.TZDateTime.from(dueDateTime, tz.local),
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'task_due_channel',
-            'Tenggat Tugas',
-            channelDescription: 'Notifikasi untuk tugas yang jatuh tempo hari ini',
-            importance: Importance.high,
-            priority: Priority.high,
-            color: Colors.red,
-          ),
-          iOS: DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-          ),
-        ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        payload: task.id,
-      );
-    }
+    // Implementasi dinonaktifkan sementara
+    debugPrint('Notifikasi untuk tugas ${task.title} tidak dijadwalkan karena fitur dinonaktifkan');
   }
 
-  // Membatalkan notifikasi untuk tugas
+  // Membatalkan notifikasi untuk tugas - dinonaktifkan sementara
   Future<void> cancelTaskNotifications(TaskModel task) async {
-    await _flutterLocalNotificationsPlugin.cancel(task.id.hashCode);
-    await _flutterLocalNotificationsPlugin.cancel((task.id + 'due').hashCode);
-    await _flutterLocalNotificationsPlugin.cancel((task.id + 'execution').hashCode);
+    // Implementasi dinonaktifkan sementara
+    debugPrint('Pembatalan notifikasi untuk tugas ${task.title} tidak diperlukan karena fitur dinonaktifkan');
   }
 
-  // Membatalkan semua notifikasi
+  // Membatalkan semua notifikasi - dinonaktifkan sementara
   Future<void> cancelAllNotifications() async {
-    await _flutterLocalNotificationsPlugin.cancelAll();
+    // Implementasi dinonaktifkan sementara
+    debugPrint('Pembatalan semua notifikasi tidak diperlukan karena fitur dinonaktifkan');
   }
 
-  // Menampilkan notifikasi langsung
+  // Menampilkan notifikasi langsung - dinonaktifkan sementara
   Future<void> showInstantNotification(String title, String body) async {
-    await _flutterLocalNotificationsPlugin.show(
-      DateTime.now().millisecondsSinceEpoch.remainder(100000),
-      title,
-      body,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'instant_channel',
-          'Notifikasi Langsung',
-          channelDescription: 'Notifikasi yang ditampilkan langsung',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-    );
+    // Implementasi dinonaktifkan sementara
+    debugPrint('Notifikasi langsung "$title: $body" tidak ditampilkan karena fitur dinonaktifkan');
   }
-} 
+}

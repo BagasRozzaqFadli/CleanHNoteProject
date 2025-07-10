@@ -5,6 +5,7 @@ import 'dart:math';
 import '../appwrite_config.dart';
 import '../models/team_model.dart';
 import '../models/team_notification.dart';
+
 import 'package:appwrite/models.dart' as models;
 
 class TeamService extends ChangeNotifier {
@@ -146,7 +147,7 @@ class TeamService extends ChangeNotifier {
           'description': description,
           'leader_id': userData.$id,
           'invitation_code': invitationCode,
-          'created_at': DateTime.now().toIso8601String(),
+          'created_at': DateTime.now().toUtc().toIso8601String(),
         },
       );
       
@@ -160,7 +161,7 @@ class TeamService extends ChangeNotifier {
           'user_id': userData.$id,
           'team_id': teamId,
           'role': 'leader',
-          'joined_at': DateTime.now().toIso8601String(),
+          'joined_at': DateTime.now().toUtc().toIso8601String(),
         },
       );
       
@@ -229,7 +230,7 @@ class TeamService extends ChangeNotifier {
           'user_id': userData.$id,
           'team_id': teamId,
           'role': 'member',
-          'joined_at': DateTime.now().toIso8601String(),
+          'joined_at': DateTime.now().toUtc().toIso8601String(),
         },
       );
       
@@ -247,7 +248,7 @@ class TeamService extends ChangeNotifier {
           'message': '${userData.name} telah bergabung dengan tim Anda',
           'notification_type': 'team_joined',
           'status': 'unread',
-          'created_at': DateTime.now().toIso8601String(),
+          'created_at': DateTime.now().toUtc().toIso8601String(),
         },
       );
       
@@ -312,7 +313,8 @@ class TeamService extends ChangeNotifier {
   }
   
   // Membuat tugas tim
-  Future<Map<String, dynamic>?> createTeamTask(
+  // Fungsi untuk membuat tugas tim dengan parameter terpisah
+  Future<Map<String, dynamic>?> createTeamTaskWithParams(
     String teamId,
     String title,
     String description,
@@ -349,27 +351,27 @@ class TeamService extends ChangeNotifier {
           'description': description,
           'assigned_to': assignedTo,
           'created_by': userData.$id,
-          'created_at': DateTime.now().toIso8601String(),
-          'due_date': dueDate.toIso8601String(),
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+          'updated_at': DateTime.now().toUtc().toIso8601String(), // Tambahkan updated_at yang required
+          'due_date': dueDate.toUtc().toIso8601String(),
           'status': 'pending',
         },
       );
       
       // Buat notifikasi untuk anggota yang ditugaskan
-      final notificationId = const Uuid().v4();
       await databases.createDocument(
         databaseId: AppwriteConfig.databaseId,
-        collectionId: 'team_notifications',
-        documentId: notificationId,
+        collectionId: 'notifications',
+        documentId: ID.unique(),
         data: {
-          'team_id': teamId,
           'user_id': assignedTo,
           'title': 'Tugas Baru',
           'message': 'Anda mendapatkan tugas baru: $title',
-          'type': 'task_assigned',
-          'related_entity_id': taskId,
-          'is_read': false,
-          'created_at': DateTime.now().toIso8601String(),
+          'notification_type': 'task_assigned',
+          'status': 'unread',
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+          'task_id': taskId,
+          'team_id': teamId,
         },
       );
       
@@ -395,6 +397,64 @@ class TeamService extends ChangeNotifier {
     }
   }
   
+  // Fungsi untuk membuat tugas tim dengan parameter Map
+  Future<bool> createTeamTask(Map<String, dynamic> taskData) async {
+    try {
+      final userData = await account.get();
+      final taskId = ID.unique();
+      final teamId = taskData['team_id'];
+      final title = taskData['title'];
+      final description = taskData['description'];
+      final assignedTo = taskData['assigned_to'];
+      final dueDate = taskData['due_date']; // dueDate sudah dalam format string ISO8601
+      final priority = taskData['priority'] ?? 'medium';
+      
+      // Buat tugas tim
+      await databases.createDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: 'team_tasks',
+        documentId: taskId,
+        data: {
+          'team_id': teamId,
+          'title': title,
+          'description': description,
+          'assigned_to': assignedTo,
+          'created_by': userData.$id,
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+          'updated_at': DateTime.now().toUtc().toIso8601String(), // Tambahkan updated_at yang required
+          'due_date': dueDate, // dueDate sudah dalam format string ISO8601
+          'status': 'pending',
+          'priority': priority,
+        },
+      );
+      
+      // Buat notifikasi untuk anggota yang ditugaskan
+      await databases.createDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: 'notifications',
+        documentId: ID.unique(),
+        data: {
+          'user_id': assignedTo,
+          'title': 'Tugas Baru',
+          'message': 'Anda mendapatkan tugas baru: $title',
+          'notification_type': 'task_assigned',
+          'status': 'unread',
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+          'task_id': taskId,
+          'team_id': teamId,
+        },
+      );
+      
+      // Reload tasks
+      await loadTeamTasks(teamId);
+      
+      return true;
+    } catch (e) {
+      print('Error creating team task: $e');
+      return false;
+    }
+  }
+  
   // Mengambil daftar tugas tim
   Future<void> loadTeamTasks(String teamId) async {
     try {
@@ -407,7 +467,11 @@ class TeamService extends ChangeNotifier {
       );
       
       _teamTasks = tasksResponse.documents
-          .map((doc) => doc.data)
+          .map((doc) {
+            final data = doc.data;
+            data['id'] = doc.$id; // Tambahkan ID dokumen ke data
+            return data;
+          })
           .toList();
       
       notifyListeners();
@@ -506,17 +570,17 @@ class TeamService extends ChangeNotifier {
       final notificationId = const Uuid().v4();
       await databases.createDocument(
         databaseId: AppwriteConfig.databaseId,
-        collectionId: 'team_notifications',
+        collectionId: 'notifications',
         documentId: notificationId,
         data: {
           'team_id': teamId,
           'user_id': createdBy,
           'title': 'Tugas Selesai',
           'message': '${userData.name} telah menyelesaikan tugas: $title',
-          'type': 'task_completed',
-          'related_entity_id': taskId,
-          'is_read': false,
-          'created_at': DateTime.now().toIso8601String(),
+          'notification_type': 'task_completed',
+          'task_id': taskId,
+          'status': 'unread',
+          'created_at': DateTime.now().toUtc().toIso8601String(),
         },
       );
       
@@ -542,7 +606,7 @@ class TeamService extends ChangeNotifier {
       
       final notificationsResponse = await databases.listDocuments(
         databaseId: AppwriteConfig.databaseId,
-        collectionId: 'team_notifications',
+        collectionId: 'notifications',
         queries: [
           Query.equal('user_id', userData.$id),
           Query.orderDesc('created_at'),
@@ -564,10 +628,10 @@ class TeamService extends ChangeNotifier {
     try {
       await databases.updateDocument(
         databaseId: AppwriteConfig.databaseId,
-        collectionId: 'team_notifications',
+        collectionId: 'notifications',
         documentId: notificationId,
         data: {
-          'is_read': true,
+          'status': 'read',
         },
       );
       
@@ -654,16 +718,16 @@ class TeamService extends ChangeNotifier {
       final teamName = teamDoc.data['team_name'];
       await databases.createDocument(
         databaseId: AppwriteConfig.databaseId,
-        collectionId: 'team_notifications',
+        collectionId: 'notifications',
         documentId: notificationId,
         data: {
           'team_id': teamId,
           'user_id': userId,
           'title': 'Undangan Tim',
           'message': 'Anda telah diundang untuk bergabung dengan tim $teamName',
-          'type': 'team_invitation',
-          'is_read': false,
-          'created_at': DateTime.now().toIso8601String(),
+          'notification_type': 'team_invitation',
+          'status': 'unread',
+          'created_at': DateTime.now().toUtc().toIso8601String(),
         },
       );
       
@@ -813,7 +877,7 @@ class TeamService extends ChangeNotifier {
       // Delete all team notifications
       final notificationsResponse = await databases.listDocuments(
         databaseId: AppwriteConfig.databaseId,
-        collectionId: 'team_notifications',
+        collectionId: 'notifications',
         queries: [
           Query.equal('team_id', teamId),
         ],
@@ -822,7 +886,7 @@ class TeamService extends ChangeNotifier {
       for (var doc in notificationsResponse.documents) {
         await databases.deleteDocument(
           databaseId: AppwriteConfig.databaseId,
-          collectionId: 'team_notifications',
+          collectionId: 'notifications',
           documentId: doc.$id,
         );
       }
@@ -889,13 +953,39 @@ class TeamService extends ChangeNotifier {
   // Mendapatkan nama pengguna berdasarkan ID
   Future<String> getUserName(String userId) async {
     try {
-      final userDoc = await databases.getDocument(
-        databaseId: AppwriteConfig.databaseId,
-        collectionId: 'users',
-        documentId: userId,
-      );
-      
-      return userDoc.data['name'] ?? 'Unknown User';
+      // Strategi 1: Coba cari dengan ID dokumen langsung
+      try {
+        final userDoc = await databases.getDocument(
+          databaseId: AppwriteConfig.databaseId,
+          collectionId: 'users',
+          documentId: userId,
+        );
+        
+        return userDoc.data['name'] ?? 'Unknown User';
+      } catch (e) {
+        print('Error getting user name by document ID: $e');
+        
+        // Strategi 2: Coba cari dengan query berdasarkan $id
+        try {
+          final userResponse = await databases.listDocuments(
+            databaseId: AppwriteConfig.databaseId,
+            collectionId: 'users',
+            queries: [
+              Query.equal('\$id', userId),
+            ],
+          );
+        
+          if (userResponse.documents.isNotEmpty) {
+            final userDoc = userResponse.documents.first;
+            return userDoc.data['name'] ?? 'Unknown User';
+          }
+        } catch (queryError) {
+          print('Error querying user by \$id: $queryError');
+        }
+        
+        // Jika semua strategi gagal
+        return 'Unknown User';
+      }
     } catch (e) {
       print('Error getting user name: $e');
       return 'Unknown User';
@@ -976,4 +1066,375 @@ class TeamService extends ChangeNotifier {
       return false;
     }
   }
-} 
+
+  // Method untuk mendapatkan team tasks
+  Future<List<Map<String, dynamic>>> getTeamTasksData(String teamId) async {
+    try {
+      final response = await databases.listDocuments(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: 'team_tasks',
+        queries: [
+          Query.equal('team_id', teamId),
+          Query.orderDesc('\$createdAt'),
+        ],
+      );
+
+      return response.documents
+          .map((doc) => Map<String, dynamic>.from(doc.data))
+          .toList();
+    } catch (e) {
+      print('Error getting team tasks: $e');
+      return [];
+    }
+  }
+
+  // Method untuk mendapatkan team members data
+  Future<List<Map<String, dynamic>>> getTeamMembersData(String teamId) async {
+    try {
+      final response = await databases.listDocuments(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: 'team_members',
+        queries: [
+          Query.equal('team_id', teamId),
+        ],
+      );
+
+      List<Map<String, dynamic>> members = [];
+      for (var doc in response.documents) {
+        try {
+          // Ambil user_id dari dokumen team_members
+          final userId = doc.data['user_id'];
+          print('Mencari user dengan ID: $userId');
+          
+          // Strategi 1: Coba cari dengan ID dokumen langsung
+          try {
+            final userDoc = await databases.getDocument(
+              databaseId: AppwriteConfig.databaseId,
+              collectionId: 'users',
+              documentId: userId,
+            );
+            
+            final memberData = Map<String, dynamic>.from(userDoc.data);
+            memberData['id'] = userDoc.$id;
+            members.add(memberData);
+            print('User ditemukan dengan ID dokumen: ${memberData['name']}');
+            continue; // Lanjutkan ke anggota berikutnya
+          } catch (e) {
+            print('User tidak ditemukan dengan ID dokumen: $e');
+            
+            // Strategi 2: Coba cari dengan query berdasarkan $id
+            try {
+              final userResponse = await databases.listDocuments(
+                databaseId: AppwriteConfig.databaseId,
+                collectionId: 'users',
+                queries: [
+                  Query.equal('\$id', userId),
+                ],
+              );
+            
+              if (userResponse.documents.isNotEmpty) {
+                final userDoc = userResponse.documents.first;
+                final memberData = Map<String, dynamic>.from(userDoc.data);
+                memberData['id'] = userDoc.$id;
+                members.add(memberData);
+                print('User ditemukan dengan query \$id: ${memberData['name']}');
+                continue; // Lanjutkan ke anggota berikutnya
+              }
+            } catch (queryError) {
+              print('Error saat query berdasarkan \$id: $queryError');
+            }
+            
+            // Strategi 3: Coba cari dengan query berdasarkan email atau nama jika ada
+            // Ini bisa ditambahkan jika diperlukan
+            
+            // Jika semua strategi gagal, tambahkan data minimal
+            print('User dengan ID $userId tidak ditemukan dengan semua strategi');
+            members.add({
+              'id': userId,
+              'name': 'Anggota Tim',
+              'email': '',
+            });
+          }
+        } catch (e) {
+          print('Error getting user data: $e');
+        }
+      }
+
+      return members;
+    } catch (e) {
+      print('Error getting team members: $e');
+      return [];
+    }
+  }
+
+  // Method untuk mendapatkan task statistics
+  Future<Map<String, dynamic>> getTeamTaskStatistics(String teamId) async {
+    try {
+      final tasks = await getTeamTasksData(teamId);
+      final members = await getTeamMembersData(teamId);
+
+      int totalTasks = tasks.length;
+      int completedTasks = tasks.where((task) => task['status'] == 'completed').length;
+      int inProgressTasks = tasks.where((task) => task['status'] == 'in_progress').length;
+      int pendingTasks = tasks.where((task) => task['status'] == 'pending').length;
+
+      Map<String, int> memberTaskCounts = {};
+      Map<String, int> memberCompletedCounts = {};
+
+      for (var member in members) {
+        final memberTasks = tasks.where((task) => task['assigned_to'] == member['id']).toList();
+        final memberCompleted = memberTasks.where((task) => task['status'] == 'completed').toList();
+        
+        memberTaskCounts[member['id']] = memberTasks.length;
+        memberCompletedCounts[member['id']] = memberCompleted.length;
+      }
+
+      return {
+        'totalTasks': totalTasks,
+        'completedTasks': completedTasks,
+        'inProgressTasks': inProgressTasks,
+        'pendingTasks': pendingTasks,
+        'completionRate': totalTasks > 0 ? completedTasks / totalTasks : 0.0,
+        'memberTaskCounts': memberTaskCounts,
+        'memberCompletedCounts': memberCompletedCounts,
+        'members': members,
+        'tasks': tasks,
+      };
+    } catch (e) {
+      print('Error getting team statistics: $e');
+      return {};
+    }
+  }
+
+  // Method untuk update task status
+  Future<void> updateTaskStatus(String taskId, String newStatus) async {
+    try {
+      Map<String, dynamic> updateData = {
+        'status': newStatus,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      };
+
+      if (newStatus == 'completed') {
+        updateData['completed_at'] = DateTime.now().toUtc().toIso8601String();
+      }
+
+      await databases.updateDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: 'team_tasks',
+        documentId: taskId,
+        data: updateData,
+      );
+
+      // Send notification if task is completed
+      if (newStatus == 'completed') {
+        final task = await getTaskById(taskId);
+        if (task != null) {
+          await _sendTaskCompletionNotification(task);
+        }
+      }
+    } catch (e) {
+      print('Error updating task status: $e');
+      throw e;
+    }
+  }
+
+  // Method untuk mengirim notifikasi penyelesaian tugas
+  Future<void> _sendTaskCompletionNotification(Map<String, dynamic> task) async {
+    try {
+      await databases.createDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: 'notifications',
+        documentId: ID.unique(),
+        data: {
+          'user_id': task['created_by'], // Kirim ke pembuat tugas
+          'title': 'Tugas Selesai',
+          'message': 'Tugas "${task['title']}" telah diselesaikan',
+          'notification_type': 'task_completed',
+          'status': 'unread',
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+          'task_id': task['\$id'],
+          'team_id': task['team_id'],
+        },
+      );
+    } catch (e) {
+      print('Error sending task completion notification: $e');
+    }
+  }
+
+  // Method untuk membuat sample tasks untuk testing
+  Future<bool> createSampleTasks(String teamId) async {
+    try {
+      print('Creating sample tasks for team: $teamId');
+      
+      final userData = await account.get();
+      print('Current user ID: ${userData.$id}');
+
+      // Ensure current user is a member of the team
+      await _ensureUserIsTeamMember(teamId, userData.$id);
+      
+      final teamMembers = await getTeamMembersData(teamId);
+      print('Team members found: ${teamMembers.length}');
+      
+      if (teamMembers.isEmpty) {
+        print('No team members found - creating fallback user assignment');
+        // Use current user as fallback if no members found
+        final fallbackMember = {
+          'id': userData.$id,
+          'name': userData.name ?? 'Current User',
+          'email': userData.email ?? '',
+        };
+        teamMembers.add(fallbackMember);
+        print('Added fallback member: ${fallbackMember['name']}');
+      }
+
+      // Check if collection exists by trying to list documents
+      try {
+        await databases.listDocuments(
+          databaseId: AppwriteConfig.databaseId,
+          collectionId: 'team_tasks',
+          queries: [Query.limit(1)],
+        );
+        print('team_tasks collection is accessible');
+      } catch (e) {
+        print('Error accessing team_tasks collection: $e');
+        return false;
+      }
+
+      // Sample tasks data
+      final sampleTasks = [
+        {
+          'title': 'Dokumentasi Project API',
+          'description': 'Membuat dokumentasi lengkap untuk API endpoint aplikasi',
+          'status': 'pending',
+          'priority': 'high',
+          'due_date': DateTime.now().add(Duration(days: 7)).toUtc().toIso8601String(),
+        },
+        {
+          'title': 'Testing Fitur Login',
+          'description': 'Melakukan testing comprehensive untuk fitur login dan autentikasi',
+          'status': 'in_progress',
+          'priority': 'medium',
+          'due_date': DateTime.now().add(Duration(days: 3)).toUtc().toIso8601String(),
+        },
+        {
+          'title': 'Design UI Dashboard',
+          'description': 'Merancang antarmuka pengguna untuk halaman dashboard',
+          'status': 'completed',
+          'priority': 'medium',
+          'due_date': DateTime.now().subtract(Duration(days: 2)).toUtc().toIso8601String(),
+        },
+      ];
+
+      print('Creating ${sampleTasks.length} sample tasks');
+
+      for (int i = 0; i < sampleTasks.length; i++) {
+        try {
+          final task = sampleTasks[i];
+          final assignedMember = teamMembers[i % teamMembers.length];
+          
+          print('Creating task ${i + 1}: ${task['title']}');
+          print('Assigned to: ${assignedMember['id']}');
+          
+          final docData = {
+            'team_id': teamId,
+            'title': task['title'],
+            'description': task['description'],
+            'assigned_to': assignedMember['id'],
+            'created_by': userData.$id,
+            'status': task['status'],
+            'priority': task['priority'],
+            'due_date': task['due_date'],
+            'created_at': DateTime.now().toUtc().toIso8601String(),
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          };
+          
+          final document = await databases.createDocument(
+            databaseId: AppwriteConfig.databaseId,
+            collectionId: 'team_tasks',
+            documentId: ID.unique(),
+            data: docData,
+          );
+          
+          print('Task created successfully with ID: ${document.$id}');
+        } catch (taskError) {
+          print('Error creating individual task ${i + 1}: $taskError');
+          // Continue with other tasks even if one fails
+        }
+      }
+
+      print('Sample tasks creation completed');
+      return true;
+    } catch (e) {
+      print('Error creating sample tasks: $e');
+      print('Error type: ${e.runtimeType}');
+      if (e is AppwriteException) {
+        print('Appwrite error code: ${e.code}');
+        print('Appwrite error message: ${e.message}');
+        print('Appwrite error type: ${e.type}');
+      }
+      return false;
+    }
+  }
+
+  // Method untuk cek apakah team sudah memiliki tasks
+  Future<bool> hasTeamTasks(String teamId) async {
+    try {
+      final tasks = await getTeamTasksData(teamId);
+      return tasks.isNotEmpty;
+    } catch (e) {
+      print('Error checking team tasks: $e');
+      return false;
+    }
+  }
+
+  // Method untuk memastikan user adalah anggota tim
+  Future<void> _ensureUserIsTeamMember(String teamId, String userId) async {
+    try {
+      print('Checking if user $userId is member of team $teamId');
+      
+      // Check if user is already a team member
+      final memberCheck = await databases.listDocuments(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: 'team_members',
+        queries: [
+          Query.equal('team_id', teamId),
+          Query.equal('user_id', userId),
+        ],
+      );
+      
+      if (memberCheck.documents.isNotEmpty) {
+        print('User is already a team member with role: ${memberCheck.documents.first.data['role']}');
+        return;
+      }
+      
+      // Check if user is the team leader
+      final teamDoc = await databases.getDocument(
+        databaseId: AppwriteConfig.databaseId,
+        collectionId: 'teams',
+        documentId: teamId,
+      );
+      
+      if (teamDoc.data['leader_id'] == userId) {
+        print('User is team leader, adding as team member');
+        // Add leader as team member if not already added
+        await databases.createDocument(
+          databaseId: AppwriteConfig.databaseId,
+          collectionId: 'team_members',
+          documentId: ID.unique(),
+          data: {
+            'user_id': userId,
+            'team_id': teamId,
+            'role': 'leader',
+            'joined_at': DateTime.now().toUtc().toIso8601String(),
+          },
+        );
+        print('Leader successfully added as team member');
+      } else {
+        print('User is not team leader and not team member - this might be an issue');
+      }
+    } catch (e) {
+      print('Error ensuring user is team member: $e');
+      // Don't throw error, just log it
+    }
+  }
+}

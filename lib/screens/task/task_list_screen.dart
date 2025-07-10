@@ -265,15 +265,21 @@ class _TaskListScreenState extends State<TaskListScreen> {
               task.description.length > 50
                   ? '${task.description.substring(0, 50)}...'
                   : task.description,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
             const SizedBox(height: 4),
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.calendar_today, size: 12),
                 const SizedBox(width: 4),
-                Text(
-                  '${task.dueDate.day}/${task.dueDate.month}/${task.dueDate.year}',
-                  style: const TextStyle(fontSize: 12),
+                Flexible(
+                  child: Text(
+                    '${task.dueDate.day}/${task.dueDate.month}/${task.dueDate.year}',
+                    style: const TextStyle(fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),

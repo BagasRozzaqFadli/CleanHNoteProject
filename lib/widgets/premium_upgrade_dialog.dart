@@ -355,28 +355,30 @@ class _PremiumUpgradeDialogState extends State<PremiumUpgradeDialog> {
               ? Border.all(color: Colors.amber, width: 2)
               : (isBestValue ? Border.all(color: Colors.amber) : null),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Column(
           children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                if (isSelected)
-                  Icon(Icons.check_circle, color: Colors.amber, size: 18),
-                if (isSelected)
-                  SizedBox(width: 8),
-                Text(period, style: TextStyle(fontWeight: FontWeight.w500)),
-              ],
-            ),
-            Row(
-              children: [
-                Text(
-                  price,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: (isSelected || isBestValue) ? Colors.amber.shade800 : null,
-                  ),
+                Row(
+                  children: [
+                    if (isSelected)
+                      Icon(Icons.check_circle, color: Colors.amber, size: 18),
+                    if (isSelected)
+                      SizedBox(width: 8),
+                    Text(period, style: TextStyle(fontWeight: FontWeight.w500)),
+                  ],
                 ),
-                if (isBestValue) ...[
+                Row(
+                  children: [
+                    Text(
+                      price,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: (isSelected || isBestValue) ? Colors.amber.shade800 : null,
+                      ),
+                    ),
+                    if (isBestValue) ...[
                   SizedBox(width: 4),
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -396,6 +398,8 @@ class _PremiumUpgradeDialogState extends State<PremiumUpgradeDialog> {
                 ],
               ],
             ),
+          ],
+        ),
           ],
         ),
       ),
@@ -424,4 +428,4 @@ class _PremiumUpgradeDialogState extends State<PremiumUpgradeDialog> {
       await launchUrl(phoneUri);
     }
   }
-} 
+}

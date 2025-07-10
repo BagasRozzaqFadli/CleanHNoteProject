@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -7,6 +8,7 @@ import 'screens/admin/super_admin_screen.dart'; // Import layar super admin
 import 'screens/admin/user_list_screen.dart';
 import 'screens/free_plan_screen.dart';
 import 'screens/premium_plan_screen.dart';
+import 'screens/dashboard_screen.dart';
 import 'services/premium_service.dart';
 import 'services/team_service.dart';
 import 'services/documentation_service.dart';
@@ -15,8 +17,20 @@ import 'services/task_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/auth_services.dart';
 import 'models/user.dart';
+import 'utils/responsive_theme.dart';
+import 'utils/responsive_layout.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Set orientasi yang diizinkan (opsional, hapus jika ingin mendukung landscape)
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+  
   runApp(
     MultiProvider(
       providers: [
@@ -39,7 +53,29 @@ class MyApp extends StatelessWidget {
       title: 'CleanHNote',
       theme: ThemeData(
         primarySwatch: Colors.blue,
+        // Tambahkan konfigurasi tema dasar di sini
+        useMaterial3: true,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
+      builder: (context, child) {
+        // Terapkan tema responsif ke seluruh aplikasi
+        final mediaQueryData = MediaQuery.of(context);
+        final scale = mediaQueryData.textScaleFactor.clamp(0.8, 1.2);
+        
+        // Gunakan ResponsiveTheme untuk mendapatkan tema yang responsif
+        final responsiveTheme = ResponsiveTheme.getResponsiveThemeData(
+          context, 
+          Theme.of(context)
+        );
+        
+        return MediaQuery(
+          data: mediaQueryData.copyWith(textScaleFactor: scale),
+          child: Theme(
+            data: responsiveTheme,
+            child: child!,
+          ),
+        );
+      },
       initialRoute: '/login',
       routes: {
         '/login': (context) => LoginScreen(),
@@ -100,15 +136,24 @@ class MyApp extends StatelessWidget {
   }
 
   void _showRateLimitInfoDialog(BuildContext context) {
+    final isSmallScreen = ResponsiveLayout.isMobile(context) && 
+                         MediaQuery.of(context).size.width < 360;
+    final dialogWidth = isSmallScreen ? 
+                       MediaQuery.of(context).size.width * 0.9 : 
+                       MediaQuery.of(context).size.width * 0.8;
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Informasi Penting'),
-          content: const Text(
-            'Saat ini, server Appwrite sedang mengalami pembatasan rate limit. '
-            'Jika Anda mengalami kesulitan login, harap tunggu beberapa saat dan coba lagi. '
-            'Sistem akan mencoba login beberapa kali secara otomatis dengan jeda waktu tertentu.'
+          content: Container(
+            width: dialogWidth,
+            child: const Text(
+              'Saat ini, server Appwrite sedang mengalami pembatasan rate limit. '
+              'Jika Anda mengalami kesulitan login, harap tunggu beberapa saat dan coba lagi. '
+              'Sistem akan mencoba login beberapa kali secara otomatis dengan jeda waktu tertentu.'
+            ),
           ),
           actions: <Widget>[
             TextButton(
@@ -184,10 +229,20 @@ class _HomeRouterState extends State<HomeRouter> {
   
   @override
   Widget build(BuildContext context) {
+    // Gunakan MediaQuery untuk mendapatkan informasi ukuran layar
+    final screenSize = MediaQuery.of(context).size;
+    final paddingScale = ResponsiveLayout.getPaddingScale(context);
+    
     if (_isLoading) {
       return Scaffold(
         body: Center(
-          child: CircularProgressIndicator(),
+          child: SizedBox(
+            width: screenSize.width * 0.1,
+            height: screenSize.width * 0.1,
+            child: CircularProgressIndicator(
+              strokeWidth: 3 * paddingScale,
+            ),
+          ),
         ),
       );
     }
@@ -198,9 +253,13 @@ class _HomeRouterState extends State<HomeRouter> {
     
     // Arahkan ke halaman yang sesuai
     if (_isAdmin) {
-      // Untuk admin, tampilkan halaman admin
+      // Untuk admin, tampilkan dashboard admin
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.of(context).pushReplacementNamed('/admin/users');
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => DashboardScreen(),
+          ),
+        );
       });
     } else if (isPremium) {
       // Untuk pengguna premium
@@ -223,9 +282,29 @@ class _HomeRouterState extends State<HomeRouter> {
     }
     
     // Tampilkan loading screen sementara navigasi diproses
+    
     return Scaffold(
       body: Center(
-        child: CircularProgressIndicator(),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: screenSize.width * 0.1,
+              height: screenSize.width * 0.1,
+              child: CircularProgressIndicator(
+                strokeWidth: 3 * paddingScale,
+              ),
+            ),
+            SizedBox(height: 16 * paddingScale),
+            Text(
+              'Memuat...',
+              style: TextStyle(
+                fontSize: 16 * ResponsiveLayout.getFontScale(context),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

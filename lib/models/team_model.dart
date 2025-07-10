@@ -40,4 +40,16 @@ class TeamModel {
       createdAt: DateTime.parse(map['createdAt']),
     );
   }
-} 
+  
+  factory TeamModel.empty() {
+    return TeamModel(
+      id: '',
+      name: '',
+      description: '',
+      createdBy: '',
+      members: [],
+      maxMembers: 50,
+      createdAt: DateTime.now(),
+    );
+  }
+}

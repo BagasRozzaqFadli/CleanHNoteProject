@@ -217,52 +217,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   SizedBox(height: 4),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'User ID: ${currentUser?.id ?? ''}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
+                  // User ID dengan overflow handling - struktur yang lebih sederhana dan efektif
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2.0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Container(
+                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+                            child: Text(
+                              'User ID: ${currentUser?.id ?? ''}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 4),
-                      InkWell(
-                        onTap: () {
-                          _copyToClipboard(currentUser?.id ?? '', 'User ID');
-                        },
-                        child: Icon(
-                          Icons.copy,
-                          size: 16,
-                          color: Colors.blue,
+                        SizedBox(width: 4),
+                        InkWell(
+                          onTap: () {
+                            _copyToClipboard(currentUser?.id ?? '', 'User ID');
+                          },
+                          child: Icon(
+                            Icons.copy,
+                            size: 16,
+                            color: Colors.blue,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   SizedBox(height: 4),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Tenant ID: ${currentUser?.tenantId ?? ''}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
+                  // Tenant ID dengan overflow handling - struktur yang lebih sederhana dan efektif
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2.0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Container(
+                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+                            child: Text(
+                              'Tenant ID: ${currentUser?.tenantId ?? ''}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 4),
-                      InkWell(
-                        onTap: () {
-                          _copyToClipboard(currentUser?.tenantId ?? '', 'Tenant ID');
-                        },
-                        child: Icon(
-                          Icons.copy,
-                          size: 16,
-                          color: Colors.blue,
+                        SizedBox(width: 4),
+                        InkWell(
+                          onTap: () {
+                            _copyToClipboard(currentUser?.tenantId ?? '', 'Tenant ID');
+                          },
+                          child: Icon(
+                            Icons.copy,
+                            size: 16,
+                            color: Colors.blue,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   // Tampilkan tombol admin jika pengguna adalah admin
                   if (_isAdmin) ...[
@@ -319,6 +341,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Icons.payment,
                     Colors.green,
                     () => Navigator.of(context).pushNamed('/admin/payments'),
+                  ),
+                  _buildAdminCard(
+                    'Progress Tim',
+                    Icons.analytics,
+                    Colors.orange,
+                    () {
+                      // Navigate to team list to select a team for monitoring
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TeamListScreen(
+                            userId: currentUser?.id ?? '',
+                            isPremium: true,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildAdminCard(
+                    'Laporan Kinerja',
+                    Icons.assessment,
+                    Colors.purple,
+                    () {
+                      // Navigate to team list to select a team for reporting
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TeamListScreen(
+                            userId: currentUser?.id ?? '',
+                            isPremium: true,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   if (currentUser?.email == 'admin@cleanhnote.com')
                     _buildAdminCard(

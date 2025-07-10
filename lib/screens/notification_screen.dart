@@ -5,6 +5,7 @@ import '../services/team_service.dart';
 import '../models/task_model.dart';
 import '../models/team_model.dart';
 import 'task/task_detail_screen.dart';
+import 'team/team_task_detail_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
   final String userId;
@@ -32,6 +33,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   void initState() {
     super.initState();
     _loadTasks();
+    _markNotificationsAsRead();
   }
 
   Future<void> _loadTasks() async {
@@ -66,10 +68,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
         return dueDate.isBefore(today) || dueDate.isAtSameMomentAs(today);
       }).toList();
 
-      // Jika pengguna premium, muat juga tugas tim
-      if (widget.isPremium) {
-        await _loadTeamTasks();
-      }
+      // Muat tugas tim untuk semua pengguna
+      await _loadTeamTasks();
       
       setState(() {
         _isLoading = false;
@@ -91,8 +91,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<void> _loadTeamTasks() async {
-    if (!widget.isPremium) return;
-
     setState(() {
       _loadingTeamTasks = true;
     });
@@ -127,36 +125,39 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: widget.isPremium ? 2 : 1,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Notifikasi'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _loadTasks,
+    return WillPopScope(
+      onWillPop: () async {
+        // Kembalikan true untuk memberi tahu layar sebelumnya bahwa notifikasi telah dibaca
+        Navigator.of(context).pop(true);
+        return false;
+      },
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Notifikasi'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                onPressed: _loadTasks,
+              ),
+            ],
+            bottom: const TabBar(
+              tabs: [
+                Tab(text: 'Pribadi'),
+                Tab(text: 'Tim'),
+              ],
             ),
-          ],
-          bottom: widget.isPremium
-              ? const TabBar(
-                  tabs: [
-                    Tab(text: 'Pribadi'),
-                    Tab(text: 'Tim'),
+          ),
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : TabBarView(
+                  children: [
+                    _buildPersonalNotificationList(),
+                    _buildTeamNotificationList(),
                   ],
-                )
-              : null,
+                ),
         ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : widget.isPremium
-                ? TabBarView(
-                    children: [
-                      _buildPersonalNotificationList(),
-                      _buildTeamNotificationList(),
-                    ],
-                  )
-                : _buildPersonalNotificationList(),
       ),
     );
   }
@@ -224,10 +225,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             onTap: () => _openTaskDetail(task.id),
           )),
         ],
-        if (!widget.isPremium) ...[
-          const SizedBox(height: 32),
-          _buildPremiumPrompt(),
-        ],
+        // Bagian premium prompt dihapus
       ],
     );
   }
@@ -359,19 +357,65 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 
+  // Menandai semua notifikasi sebagai dibaca
+  Future<void> _markNotificationsAsRead() async {
+    try {
+      final teamService = Provider.of<TeamService>(context, listen: false);
+      final unreadNotifications = teamService.unreadNotifications;
+      
+      for (var notification in unreadNotifications) {
+        await teamService.markNotificationAsRead(notification.id);
+      }
+    } catch (e) {
+      debugPrint('Error saat menandai notifikasi sebagai dibaca: $e');
+    }
+  }
+  
   Future<void> _openTaskDetail(String taskId) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => TaskDetailScreen(
-          taskId: taskId,
-          isPremium: widget.isPremium,
-        ),
-      ),
+    // Cari tugas di daftar tugas tim terlebih dahulu
+    TaskModel? teamTask = _teamTasks.firstWhere(
+      (task) => task.id == taskId,
+      orElse: () => TaskModel.empty(),
     );
     
-    if (result == true) {
-      _loadTasks();
+    // Jika tugas ditemukan di daftar tugas tim dan memiliki teamId
+    if (teamTask.id.isNotEmpty && teamTask.teamId != null && teamTask.teamId!.isNotEmpty) {
+      // Cari tim yang sesuai dengan teamId
+      TeamModel? team = _teams.firstWhere(
+        (team) => team.id == teamTask.teamId,
+        orElse: () => TeamModel.empty(),
+      );
+      
+      // Navigasi ke halaman detail tugas tim
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TeamTaskDetailScreen(
+            taskId: taskId,
+            teamId: teamTask.teamId!,
+            isLeader: team.id.isNotEmpty ? team.createdBy == widget.userId : false,
+          ),
+        ),
+      );
+      
+      if (result == true) {
+        _loadTasks();
+      }
+    } else {
+      // Jika bukan tugas tim, navigasi ke halaman detail tugas personal
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TaskDetailScreen(
+            taskId: taskId,
+            isPremium: widget.isPremium,
+          ),
+        ),
+      );
+      
+      if (result == true) {
+        _loadTasks();
+      }
     }
   }
 }

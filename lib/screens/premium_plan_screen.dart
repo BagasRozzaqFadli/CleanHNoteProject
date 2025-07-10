@@ -13,6 +13,7 @@ import 'team/team_list_screen.dart';
 import 'documentation/photo_gallery_screen.dart';
 import 'report/report_dashboard_screen.dart';
 import 'team/team_detail_screen.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class PremiumPlanScreen extends StatefulWidget {
   final String userId;
@@ -47,9 +48,11 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
     });
 
     try {
+      final teamService = Provider.of<TeamService>(context, listen: false);
       await Future.wait([
         _loadRecentTasks(),
         _loadTeams(),
+        teamService.loadUserNotifications(),
       ]);
     } finally {
       setState(() {
@@ -147,19 +150,53 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
           title: const Text('CleanHNote Premium'),
           automaticallyImplyLeading: false, // Menghilangkan tombol kembali
           actions: [
-            IconButton(
-              icon: const Icon(Icons.notifications),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => NotificationScreen(
-                      userId: widget.userId,
-                      isPremium: true,
-                    ),
-                  ),
-                );
-              },
+            Stack(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications),
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => NotificationScreen(
+                          userId: widget.userId,
+                          isPremium: true,
+                        ),
+                      ),
+                    );
+                    
+                    // Jika kembali dengan nilai true, berarti notifikasi telah dibaca
+                    if (result == true) {
+                      // Refresh notifikasi
+                      final teamService = Provider.of<TeamService>(context, listen: false);
+                      await teamService.loadUserNotifications();
+                    }
+                  },
+                ),
+                Consumer<TeamService>(
+                  builder: (context, teamService, child) {
+                    final hasUnreadNotifications = teamService.unreadNotifications.isNotEmpty;
+                    
+                    return hasUnreadNotifications
+                      ? Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.all(Radius.circular(6)),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 12,
+                              minHeight: 12,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink();
+                  },
+                ),
+              ],
             ),
             IconButton(
               icon: const Icon(Icons.logout),
@@ -291,20 +328,38 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
                       color: daysLeft < 7 ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          daysLeft < 7 ? Icons.warning : Icons.check_circle,
-                          color: daysLeft < 7 ? Colors.red : Colors.green,
-                          size: 16,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              daysLeft < 7 ? Icons.warning : Icons.check_circle,
+                              color: daysLeft < 7 ? Colors.red : Colors.green,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Langganan premium Anda berlaku hingga:',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: daysLeft < 7 ? Colors.red : Colors.green,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Langganan premium Anda berlaku hingga ${expiryDate.day}/${expiryDate.month}/${expiryDate.year} (${daysLeft} hari lagi)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: daysLeft < 7 ? Colors.red : Colors.green,
-                            fontWeight: FontWeight.w500,
+                        Padding(
+                          padding: const EdgeInsets.only(left: 24),
+                          child: Text(
+                            '${expiryDate.day}/${expiryDate.month}/${expiryDate.year} (${daysLeft} hari lagi)',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: daysLeft < 7 ? Colors.red : Colors.green,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
@@ -337,7 +392,7 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
           child: Row(
             children: [
               _buildQuickActionItem(
-                icon: Icons.task_alt,
+                icon: 'assets/images/task_alt_icon.svg',
                 label: 'Tugas Saya',
                 color: Colors.blue,
                 onTap: () {
@@ -421,18 +476,23 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
   }
 
   Widget _buildQuickActionItem({
-    required IconData icon,
+    required dynamic icon, // Dapat berupa IconData atau String (path SVG)
     required String label,
     required Color color,
     required VoidCallback onTap,
   }) {
+    // Menggunakan MediaQuery untuk mendapatkan lebar layar
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Menghitung lebar item berdasarkan lebar layar (sekitar 20% dari lebar layar)
+    final itemWidth = screenWidth * 0.2;
+    
     return Container(
       margin: const EdgeInsets.only(right: 12),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          width: 80,
+          width: itemWidth,
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: color.withOpacity(0.1),
@@ -442,15 +502,30 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 32),
+              icon is IconData
+                  ? Icon(icon, color: color, size: 32)
+                  : SvgPicture.asset(
+                      icon,
+                      width: 32,
+                      height: 32,
+                      colorFilter: ColorFilter.mode(
+                        color,
+                        BlendMode.srcIn,
+                      ),
+                    ),
               const SizedBox(height: 8),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: color,
+              SizedBox(
+                width: itemWidth,
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: color,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
             ],
@@ -598,15 +673,21 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
               task.description.length > 50
                   ? '${task.description.substring(0, 50)}...'
                   : task.description,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
             const SizedBox(height: 4),
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.calendar_today, size: 12),
                 const SizedBox(width: 4),
-                Text(
-                  'Tenggat: ${task.dueDate.day}/${task.dueDate.month}/${task.dueDate.year}',
-                  style: const TextStyle(fontSize: 12),
+                Flexible(
+                  child: Text(
+                    'Tenggat: ${task.dueDate.day}/${task.dueDate.month}/${task.dueDate.year}',
+                    style: const TextStyle(fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -1054,78 +1135,6 @@ class _PremiumPlanScreenState extends State<PremiumPlanScreen> {
             ),
           );
         }
-      }
-    }
-  }
-
-  Widget _buildDrawer() {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: <Widget>[
-          DrawerHeader(
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
-            ),
-            child: const Text(
-              'CleanHNote Premium',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.home),
-            title: const Text('Beranda'),
-            onTap: () {
-              Navigator.pop(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.group),
-            title: const Text('Tim'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => TeamListScreen(
-                    userId: widget.userId,
-                    isPremium: true,
-                  ),
-                ),
-              );
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text('Logout'),
-            onTap: () async {
-              Navigator.pop(context);
-              await _logout();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _logout() async {
-    try {
-      await _authService.signOut();
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/login');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal logout: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
     }
   }

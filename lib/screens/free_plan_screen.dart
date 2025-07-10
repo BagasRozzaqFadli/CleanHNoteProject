@@ -14,6 +14,10 @@ import 'premium/premium_plans_screen.dart';
 import '../services/team_service.dart';
 import '../models/team_model.dart';
 import 'team/team_detail_screen.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../utils/responsive_layout.dart';
+import '../utils/responsive_theme.dart';
+import '../widgets/responsive_builder.dart';
 
 class FreePlanScreen extends StatefulWidget {
   final String userId;
@@ -41,6 +45,16 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
     super.initState();
     _loadRecentTasks();
     _loadTeams();
+    _loadNotifications();
+  }
+  
+  Future<void> _loadNotifications() async {
+    try {
+      final teamService = Provider.of<TeamService>(context, listen: false);
+      await teamService.loadUserNotifications();
+    } catch (e) {
+      debugPrint('Error saat memuat notifikasi: $e');
+    }
   }
 
   Future<void> _loadRecentTasks() async {
@@ -90,82 +104,140 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Menghitung skala responsif berdasarkan ukuran layar
+    final paddingScale = ResponsiveLayout.getPaddingScale(context);
+    final fontScale = ResponsiveLayout.getFontScale(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final responsivePadding = ResponsiveTheme.getResponsivePadding(context, EdgeInsets.all(16));
+    
     return WillPopScope(
       onWillPop: () async => false,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('CleanHNote Free Plan'),
+          title: Text(
+            'CleanHNote Free Plan',
+            style: TextStyle(fontSize: 20 * fontScale),
+          ),
           automaticallyImplyLeading: false,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.notifications),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => NotificationScreen(
-                      userId: widget.userId,
-                      isPremium: false,
-                    ),
+            Stack(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.notifications,
+                    size: 24 * fontScale,
                   ),
-                );
-              },
+                  iconSize: 24 * fontScale,
+                  onPressed: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => NotificationScreen(
+                          userId: widget.userId,
+                          isPremium: false,
+                        ),
+                      ),
+                    );
+                    
+                    // Jika kembali dengan nilai true, berarti notifikasi telah dibaca
+                    if (result == true) {
+                      // Refresh notifikasi
+                      final teamService = Provider.of<TeamService>(context, listen: false);
+                      await teamService.loadUserNotifications();
+                    }
+                  },
+                ),
+                Consumer<TeamService>(
+                  builder: (context, teamService, child) {
+                    final hasUnreadNotifications = teamService.unreadNotifications.isNotEmpty;
+                    
+                    return hasUnreadNotifications
+                      ? Positioned(
+                          right: 8 * paddingScale,
+                          top: 8 * paddingScale,
+                          child: Container(
+                            padding: EdgeInsets.all(2 * paddingScale),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(6 * paddingScale),
+                            ),
+                            constraints: BoxConstraints(
+                              minWidth: 12 * paddingScale,
+                              minHeight: 12 * paddingScale,
+                            ),
+                          ),
+                        )
+                      : SizedBox.shrink();
+                  },
+                ),
+              ],
             ),
             IconButton(
-              icon: const Icon(Icons.logout),
+              icon: Icon(
+                Icons.logout,
+                size: 24 * fontScale,
+              ),
+              iconSize: 24 * fontScale,
               onPressed: () => _handleLogout(context),
               tooltip: 'Logout',
             ),
           ],
         ),
         body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator(
+                strokeWidth: 2 * paddingScale,
+              ))
             : SingleChildScrollView(
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: EdgeInsets.all(16.0 * paddingScale),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildWelcomeCard(),
-                      const SizedBox(height: 24),
-                      _buildFeaturesSection(),
-                      const SizedBox(height: 24),
-                      _buildTeamsSectionFree(),
-                      const SizedBox(height: 24),
-                      _buildJoinTeamCard(),
-                      const SizedBox(height: 24),
-                      _buildUpgradeToPremiumCard(),
-                      const SizedBox(height: 24),
-                      _buildTasksSection(),
-                      const SizedBox(height: 24),
-                      _buildNotificationsSection(),
+                      _buildWelcomeCard(context, paddingScale, fontScale),
+                      SizedBox(height: 24 * paddingScale),
+                      _buildFeaturesSection(context, paddingScale, fontScale),
+                      SizedBox(height: 24 * paddingScale),
+                      _buildTeamsSectionFree(context, paddingScale, fontScale),
+                      SizedBox(height: 24 * paddingScale),
+                      _buildJoinTeamCard(context, paddingScale, fontScale),
+                      SizedBox(height: 24 * paddingScale),
+                      _buildUpgradeToPremiumCard(context, paddingScale, fontScale),
+                      SizedBox(height: 24 * paddingScale),
+                      _buildTasksSection(context, paddingScale, fontScale),
+                      SizedBox(height: 24 * paddingScale),
+                      _buildNotificationsSection(context, paddingScale, fontScale),
                     ],
                   ),
                 ),
               ),
-        drawer: _buildDrawer(),
+        drawer: _buildDrawer(context, paddingScale, fontScale),
       ),
     );
   }
 
-  Widget _buildWelcomeCard() {
+  Widget _buildWelcomeCard(BuildContext context, double paddingScale, double fontScale) {
     return Card(
       elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12 * paddingScale),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0 * paddingScale),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 CircleAvatar(
+                  radius: 20 * paddingScale,
                   backgroundColor: Theme.of(context).primaryColor,
-                  child: const Icon(
+                  child: Icon(
                     Icons.person,
                     color: Colors.white,
+                    size: 24 * fontScale,
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16 * paddingScale),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,31 +246,40 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
                         future: _userService.getUserById(widget.userId),
                         builder: (context, snapshot) {
                           if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Text('Memuat...');
+                            return Text(
+                              'Memuat...',
+                              style: TextStyle(fontSize: 14 * fontScale),
+                            );
                           }
                           if (snapshot.hasError) {
-                            return const Text('Pengguna');
+                            return Text(
+                              'Pengguna',
+                              style: TextStyle(fontSize: 14 * fontScale),
+                            );
                           }
                           final user = snapshot.data;
                           return Text(
                             'Selamat datang, ${user?.name ?? 'Pengguna'}!',
-                            style: const TextStyle(
-                              fontSize: 18,
+                            style: TextStyle(
+                              fontSize: 18 * fontScale,
                               fontWeight: FontWeight.bold,
                             ),
                           );
                         },
                       ),
-                      const Text('Free Plan'),
+                      Text(
+                        'Free Plan',
+                        style: TextStyle(fontSize: 14 * fontScale),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: 16 * paddingScale),
+            Text(
               'Anda menggunakan versi gratis dari CleanHNote. Upgrade ke Premium untuk mendapatkan fitur lengkap.',
-              style: TextStyle(fontSize: 14),
+              style: TextStyle(fontSize: 14 * fontScale),
             ),
           ],
         ),
@@ -206,29 +287,35 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
     );
   }
 
-  Widget _buildFeaturesSection() {
+  Widget _buildFeaturesSection(BuildContext context, double paddingScale, double fontScale) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Fitur yang Tersedia',
+        Text(
+          'Fitur Tersedia',
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 18 * fontScale,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16 * paddingScale),
         _buildFeatureItem(
-          icon: Icons.task_alt,
+          icon: 'assets/images/task_alt_icon.svg',
           title: 'Tugas Personal Dasar',
           description: 'Buat dan kelola tugas pribadi Anda',
           isAvailable: true,
+          context: context,
+          paddingScale: paddingScale,
+          fontScale: fontScale,
         ),
         _buildFeatureItem(
           icon: Icons.notifications,
           title: 'Notifikasi Dasar',
           description: 'Dapatkan pengingat untuk tugas yang akan datang',
           isAvailable: true,
+          context: context,
+          paddingScale: paddingScale,
+          fontScale: fontScale,
         ),
         _buildFeatureItem(
           icon: Icons.people,
@@ -236,48 +323,70 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
           description: 'Buat tim dan kelola anggota tim (Gabung tim tersedia)',
           isAvailable: true,
           isPartial: true,
+          context: context,
+          paddingScale: paddingScale,
+          fontScale: fontScale,
         ),
         _buildFeatureItem(
           icon: Icons.photo,
           title: 'Upload Foto',
           description: 'Tambahkan gambar ke tugas Anda',
           isAvailable: false,
+          context: context,
+          paddingScale: paddingScale,
+          fontScale: fontScale,
         ),
         _buildFeatureItem(
           icon: Icons.bar_chart,
           title: 'Laporan Lengkap',
           description: 'Analisis kinerja dan produktivitas',
           isAvailable: false,
+          context: context,
+          paddingScale: paddingScale,
+          fontScale: fontScale,
         ),
       ],
     );
   }
 
   Widget _buildFeatureItem({
-    required IconData icon,
+    required dynamic icon, // Dapat berupa IconData atau String (path SVG)
     required String title,
     required String description,
     required bool isAvailable,
     bool isPartial = false,
+    BuildContext? context,
+    double paddingScale = 1.0,
+    double fontScale = 1.0,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
+      padding: EdgeInsets.only(bottom: 12.0 * paddingScale),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(8 * paddingScale),
             decoration: BoxDecoration(
               color: isAvailable ? Colors.green[50] : Colors.grey[200],
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(8 * paddingScale),
             ),
-            child: Icon(
-              icon,
-              color: isAvailable ? Colors.green : Colors.grey,
-              size: 24,
-            ),
+            child: icon is IconData
+                ? Icon(
+                    icon,
+                    color: isAvailable ? Colors.green : Colors.grey,
+                    size: 24 * fontScale,
+                  )
+                : SvgPicture.asset(
+                    icon,
+                    width: 24 * fontScale,
+                    height: 24 * fontScale,
+                    colorFilter: ColorFilter.mode(
+                      isAvailable ? Colors.green : Colors.grey,
+                      BlendMode.srcIn,
+                    ),
+                  ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16 * paddingScale),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,21 +397,22 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
                       title,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
+                        fontSize: 14 * fontScale,
                         color: isAvailable ? Colors.black : Colors.grey,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8 * paddingScale),
                     if (!isAvailable)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: EdgeInsets.symmetric(horizontal: 8 * paddingScale, vertical: 2 * paddingScale),
                         decoration: BoxDecoration(
                           color: Colors.amber,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(12 * paddingScale),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Premium',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 10 * fontScale,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
@@ -310,15 +420,15 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
                       ),
                     if (isPartial)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: EdgeInsets.symmetric(horizontal: 8 * paddingScale, vertical: 2 * paddingScale),
                         decoration: BoxDecoration(
                           color: Colors.blue,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(12 * paddingScale),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Sebagian',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 10 * fontScale,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
@@ -326,11 +436,11 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4 * paddingScale),
                 Text(
                   description,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 12 * fontScale,
                     color: isAvailable ? Colors.black87 : Colors.grey,
                   ),
                 ),
@@ -342,44 +452,50 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
     );
   }
 
-  Widget _buildUpgradeToPremiumCard() {
+  Widget _buildUpgradeToPremiumCard(BuildContext context, double paddingScale, double fontScale) {
     return Card(
       color: Colors.amber[50],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12 * paddingScale),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0 * paddingScale),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.star, color: Colors.amber),
-                SizedBox(width: 8),
+                Icon(Icons.star, color: Colors.amber, size: 24 * fontScale),
+                SizedBox(width: 8 * paddingScale),
                 Text(
                   'Upgrade ke Premium',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 18 * fontScale,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: 16 * paddingScale),
+            Text(
               'Dapatkan akses ke semua fitur premium:',
-              style: TextStyle(fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 14 * fontScale,
+              ),
             ),
-            const SizedBox(height: 8),
-            const _BulletPoint(text: 'Manajemen tim dan kolaborasi'),
-            const _BulletPoint(text: 'Upload foto dan lampiran'),
-            const _BulletPoint(text: 'Laporan dan analitik lengkap'),
-            const _BulletPoint(text: 'Penugasan dan delegasi'),
-            const _BulletPoint(text: 'Notifikasi lanjutan'),
-            const SizedBox(height: 16),
+            SizedBox(height: 8 * paddingScale),
+            _BulletPoint(text: 'Manajemen tim dan kolaborasi', paddingScale: paddingScale, fontScale: fontScale),
+            _BulletPoint(text: 'Upload foto dan lampiran', paddingScale: paddingScale, fontScale: fontScale),
+            _BulletPoint(text: 'Laporan dan analitik lengkap', paddingScale: paddingScale, fontScale: fontScale),
+            _BulletPoint(text: 'Penugasan dan delegasi', paddingScale: paddingScale, fontScale: fontScale),
+            _BulletPoint(text: 'Notifikasi lanjutan', paddingScale: paddingScale, fontScale: fontScale),
+            SizedBox(height: 16 * paddingScale),
             
             // Pilihan paket premium
-            _buildPremiumPackageOptions(),
+            _buildPremiumPackageOptions(context, paddingScale, fontScale),
             
-            const SizedBox(height: 16),
+            SizedBox(height: 16 * paddingScale),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -389,8 +505,15 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.amber,
                   foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 12 * paddingScale),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8 * paddingScale),
+                  ),
                 ),
-                child: const Text('Upgrade Sekarang'),
+                child: Text(
+                  'Upgrade Sekarang',
+                  style: TextStyle(fontSize: 16 * fontScale),
+                ),
               ),
             ),
           ],
@@ -399,37 +522,46 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
     );
   }
 
-  Widget _buildPremiumPackageOptions() {
+  Widget _buildPremiumPackageOptions(BuildContext context, double paddingScale, double fontScale) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Pilih Paket Premium:',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 16,
+            fontSize: 16 * fontScale,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8 * paddingScale),
         _buildPackageOption(
           title: '1 Bulan',
           price: 'Rp 50.000',
           isPopular: false,
           onTap: () => _showPremiumInfoDialog(selectedPeriod: '1 Bulan'),
+          context: context,
+          paddingScale: paddingScale,
+          fontScale: fontScale,
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8 * paddingScale),
         _buildPackageOption(
           title: '3 Bulan',
           price: 'Rp 135.000',
           isPopular: true,
           onTap: () => _showPremiumInfoDialog(selectedPeriod: '3 Bulan'),
+          context: context,
+          paddingScale: paddingScale,
+          fontScale: fontScale,
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8 * paddingScale),
         _buildPackageOption(
           title: '12 Bulan',
           price: 'Rp 480.000',
           isPopular: false,
           onTap: () => _showPremiumInfoDialog(selectedPeriod: '12 Bulan'),
+          context: context,
+          paddingScale: paddingScale,
+          fontScale: fontScale,
         ),
       ],
     );
@@ -440,53 +572,60 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
     required String price,
     required bool isPopular,
     required VoidCallback onTap,
+    BuildContext? context,
+    double paddingScale = 1.0,
+    double fontScale = 1.0,
   }) {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12 * paddingScale),
         decoration: BoxDecoration(
           color: isPopular ? Colors.amber.withOpacity(0.2) : Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(8 * paddingScale),
           border: Border.all(
             color: isPopular ? Colors.amber : Colors.grey.shade300,
-            width: isPopular ? 2 : 1,
+            width: isPopular ? 2 * paddingScale : 1 * paddingScale,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 16,
+            Flexible(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16 * fontScale,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   price,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                    fontSize: 16 * fontScale,
                     color: isPopular ? Colors.amber.shade800 : Colors.black,
                   ),
                 ),
-                if (isPopular) ...[
-                  const SizedBox(width: 8),
+                if (isPopular) ...[                  
+                  SizedBox(width: 8 * paddingScale),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: EdgeInsets.symmetric(horizontal: 8 * paddingScale, vertical: 4 * paddingScale),
                     decoration: BoxDecoration(
                       color: Colors.amber,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(12 * paddingScale),
                     ),
-                    child: const Text(
+                    child: Text(
                       'BEST',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 10,
+                        fontSize: 10 * fontScale,
                       ),
                     ),
                   ),
@@ -506,17 +645,17 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
     );
   }
 
-  Widget _buildTasksSection() {
+  Widget _buildTasksSection(BuildContext context, double paddingScale, double fontScale) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Tugas Saya',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 18 * fontScale,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -532,43 +671,47 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
                   ),
                 ).then((_) => _loadRecentTasks());
               },
-              child: const Text('Lihat Semua'),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 8 * paddingScale, vertical: 4 * paddingScale),
+                textStyle: TextStyle(fontSize: 14 * fontScale),
+              ),
+              child: Text('Lihat Semua'),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8 * paddingScale),
         SizedBox(
-          height: 220,
+          height: 220 * paddingScale,
           child: _loadingTasks
-              ? const Center(child: CircularProgressIndicator())
+              ? Center(child: CircularProgressIndicator(strokeWidth: 2 * paddingScale))
               : _recentTasks.isEmpty
-                  ? _buildEmptyTasksView()
-                  : _buildTasksListView(),
+                  ? _buildEmptyTasksView(context, paddingScale, fontScale)
+                  : _buildTasksListView(context, paddingScale, fontScale),
         ),
       ],
     );
   }
 
-  Widget _buildEmptyTasksView() {
+  Widget _buildEmptyTasksView(BuildContext context, double paddingScale, double fontScale) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.task_alt,
-            size: 50,
+            size: 50 * fontScale,
             color: Colors.grey[400],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16 * paddingScale),
           Text(
             'Belum ada tugas',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 16 * fontScale,
               fontWeight: FontWeight.w500,
               color: Colors.grey[600],
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16 * paddingScale),
           ElevatedButton.icon(
             onPressed: () {
               Navigator.push(
@@ -582,15 +725,19 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
                 }
               });
             },
-            icon: const Icon(Icons.add_task),
-            label: const Text('Buat Tugas Baru'),
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.symmetric(horizontal: 16 * paddingScale, vertical: 8 * paddingScale),
+              textStyle: TextStyle(fontSize: 14 * fontScale),
+            ),
+            icon: Icon(Icons.add_task, size: 18 * fontScale),
+            label: Text('Buat Tugas Baru'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTasksListView() {
+  Widget _buildTasksListView(BuildContext context, double paddingScale, double fontScale) {
     return Column(
       children: [
         Expanded(
@@ -601,46 +748,59 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
               final Color statusColor = _getStatusColor(task.status);
               
               return Card(
-                margin: const EdgeInsets.only(bottom: 8),
+                margin: EdgeInsets.only(bottom: 8 * paddingScale),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8 * paddingScale),
+                ),
                 child: ListTile(
+                  contentPadding: EdgeInsets.symmetric(horizontal: 16 * paddingScale, vertical: 8 * paddingScale),
                   title: Text(
                     task.title,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16 * fontScale),
                   ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      SizedBox(height: 4 * paddingScale),
                       Text(
                         task.description.length > 50
                             ? '${task.description.substring(0, 50)}...'
                             : task.description,
+                        style: TextStyle(fontSize: 14 * fontScale),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4 * paddingScale),
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: EdgeInsets.symmetric(horizontal: 6 * paddingScale, vertical: 2 * paddingScale),
                             decoration: BoxDecoration(
                               color: statusColor.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(4 * paddingScale),
                             ),
                             child: Text(
                               task.status.name,
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 12 * fontScale,
                                 color: statusColor,
                                 fontWeight: FontWeight.w500,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Icon(Icons.calendar_today, size: 12, color: Colors.grey[600]),
-                          const SizedBox(width: 4),
-                          Text(
-                            _formatDate(task.dueDate),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
+                          SizedBox(width: 8 * paddingScale),
+                          Icon(Icons.calendar_today, size: 12 * fontScale, color: Colors.grey[600]),
+                          SizedBox(width: 4 * paddingScale),
+                          Flexible(
+                            child: Text(
+                              _formatDate(task.dueDate),
+                              style: TextStyle(
+                                fontSize: 12 * fontScale,
+                                color: Colors.grey[600],
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -663,7 +823,7 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
             },
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8 * paddingScale),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
@@ -679,8 +839,12 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
                 }
               });
             },
-            icon: const Icon(Icons.add),
-            label: const Text('Tambah Tugas Baru'),
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.symmetric(horizontal: 16 * paddingScale, vertical: 8 * paddingScale),
+              textStyle: TextStyle(fontSize: 14 * fontScale),
+            ),
+            icon: Icon(Icons.add, size: 18 * fontScale),
+            label: Text('Tambah Tugas Baru'),
           ),
         ),
       ],
@@ -704,17 +868,17 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  Widget _buildNotificationsSection() {
+  Widget _buildNotificationsSection(BuildContext context, double paddingScale, double fontScale) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Notifikasi',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 18 * fontScale,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -730,42 +894,51 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
                   ),
                 );
               },
-              child: const Text('Lihat Semua'),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 8 * paddingScale, vertical: 4 * paddingScale),
+                textStyle: TextStyle(fontSize: 14 * fontScale),
+              ),
+              child: Text('Lihat Semua'),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8 * paddingScale),
         Card(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12 * paddingScale),
+          ),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(16.0 * paddingScale),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: EdgeInsets.all(8 * paddingScale),
                       decoration: BoxDecoration(
                         color: Colors.orange.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(8 * paddingScale),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.notifications_active,
                         color: Colors.orange,
+                        size: 24 * fontScale,
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    const Expanded(
+                    SizedBox(width: 16 * paddingScale),
+                    Expanded(
                       child: Text(
                         'Dapatkan pengingat untuk tugas yang mendekati tenggat waktu',
                         style: TextStyle(
                           fontWeight: FontWeight.w500,
+                          fontSize: 14 * fontScale,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16 * paddingScale),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -791,7 +964,7 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
     );
   }
 
-  Widget _buildDrawer() {
+  Widget _buildDrawer(BuildContext context, double paddingScale, double fontScale) {
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -800,24 +973,26 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
             decoration: BoxDecoration(
               color: Theme.of(context).primaryColor,
             ),
-            child: const Text(
+            child: Text(
               'CleanHNote',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 24,
+                fontSize: 24 * fontScale,
               ),
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.home),
-            title: const Text('Beranda'),
+            leading: Icon(Icons.home, size: 24 * fontScale),
+            title: Text('Beranda', style: TextStyle(fontSize: 16 * fontScale)),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16 * paddingScale, vertical: 8 * paddingScale),
             onTap: () {
               Navigator.pop(context);
             },
           ),
           ListTile(
-            leading: const Icon(Icons.star),
-            title: const Text('Premium'),
+            leading: Icon(Icons.star, size: 24 * fontScale),
+            title: Text('Premium', style: TextStyle(fontSize: 16 * fontScale)),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16 * paddingScale, vertical: 8 * paddingScale),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -829,8 +1004,9 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.group),
-            title: const Text('Tim'),
+            leading: Icon(Icons.group, size: 24 * fontScale),
+            title: Text('Tim', style: TextStyle(fontSize: 16 * fontScale)),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16 * paddingScale, vertical: 8 * paddingScale),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -841,10 +1017,11 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
               );
             },
           ),
-          const Divider(),
+          Divider(thickness: 1 * paddingScale),
           ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text('Logout'),
+            leading: Icon(Icons.logout, size: 24 * fontScale),
+            title: Text('Logout', style: TextStyle(fontSize: 16 * fontScale)),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16 * paddingScale, vertical: 8 * paddingScale),
             onTap: () async {
               Navigator.pop(context);
               await _handleLogout(context);
@@ -856,23 +1033,35 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
   }
 
   Future<void> _handleLogout(BuildContext context) async {
+    // Menghitung skala responsif
+    final paddingScale = ResponsiveLayout.getPaddingScale(context);
+    final fontScale = ResponsiveLayout.getFontScale(context);
+    
     bool confirm = await showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Konfirmasi Logout'),
-          content: const Text('Apakah Anda yakin ingin keluar dari aplikasi?'),
+          title: Text('Konfirmasi Logout', style: TextStyle(fontSize: 18 * fontScale)),
+          content: Text('Apakah Anda yakin ingin keluar dari aplikasi?', style: TextStyle(fontSize: 16 * fontScale)),
+          actionsPadding: EdgeInsets.all(16 * paddingScale),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12 * paddingScale)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Batal'),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 16 * paddingScale, vertical: 8 * paddingScale),
+                textStyle: TextStyle(fontSize: 14 * fontScale),
+              ),
+              child: Text('Batal'),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(context).pop(true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
+                padding: EdgeInsets.symmetric(horizontal: 16 * paddingScale, vertical: 8 * paddingScale),
+                textStyle: TextStyle(fontSize: 14 * fontScale),
               ),
-              child: const Text('Logout'),
+              child: Text('Logout'),
             ),
           ],
         );
@@ -889,8 +1078,9 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Gagal logout: ${e.toString()}'),
+              content: Text('Gagal logout: ${e.toString()}', style: TextStyle(fontSize: 14 * fontScale)),
               backgroundColor: Colors.red,
+              padding: EdgeInsets.symmetric(horizontal: 16 * paddingScale, vertical: 10 * paddingScale),
             ),
           );
         }
@@ -902,33 +1092,36 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
     await _handleLogout(context);
   }
 
-  Widget _buildJoinTeamCard() {
+  Widget _buildJoinTeamCard(BuildContext context, double paddingScale, double fontScale) {
     return Card(
       color: Colors.blue[50],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12 * paddingScale),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0 * paddingScale),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.people, color: Colors.blue),
-                SizedBox(width: 8),
+                Icon(Icons.people, color: Colors.blue, size: 24 * fontScale),
+                SizedBox(width: 8 * paddingScale),
                 Text(
                   'Gabung dengan Tim',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 18 * fontScale,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            const Text(
+            SizedBox(height: 12 * paddingScale),
+            Text(
               'Meskipun Anda menggunakan versi gratis, Anda tetap dapat bergabung dengan tim yang sudah ada menggunakan kode undangan.',
-              style: TextStyle(fontSize: 14),
+              style: TextStyle(fontSize: 14 * fontScale),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16 * paddingScale),
             
             Row(
               children: [
@@ -945,22 +1138,23 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
                         ),
                       );
                     },
-                    icon: const Icon(Icons.group_add),
-                    label: const Text('Gabung Tim Sekarang'),
+                    icon: Icon(Icons.group_add, size: 18 * fontScale),
+                    label: Text('Gabung Tim Sekarang', style: TextStyle(fontSize: 14 * fontScale)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
                       foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(horizontal: 16 * paddingScale, vertical: 8 * paddingScale),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            const Center(
+            SizedBox(height: 8 * paddingScale),
+            Center(
               child: Text(
                 'Gunakan kode undangan dari teman untuk bergabung',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 12 * fontScale,
                   fontStyle: FontStyle.italic,
                   color: Colors.grey,
                 ),
@@ -972,36 +1166,36 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
     );
   }
 
-  Widget _buildTeamsSectionFree() {
+  Widget _buildTeamsSectionFree(BuildContext context, double paddingScale, double fontScale) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Tim Saya',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 18 * fontScale,
                 fontWeight: FontWeight.bold,
               ),
             ),
             // Tidak ada tombol "Lihat Semua" atau "Buat Tim Baru" di versi free
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8 * paddingScale),
         _loadingTeams
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator(strokeWidth: 2 * paddingScale))
             : _teams.isEmpty
-                ? _buildEmptyTeamsCardFree()
+                ? _buildEmptyTeamsCardFree(context, paddingScale, fontScale)
                 : SizedBox(
-                    height: 140,
+                    height: 140 * paddingScale,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       itemCount: _teams.length,
                       itemBuilder: (context, index) {
                         final team = _teams[index];
-                        return _buildTeamItemFree(team);
+                        return _buildTeamItemFree(team, context, paddingScale, fontScale);
                       },
                     ),
                   ),
@@ -1009,29 +1203,32 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
     );
   }
 
-  Widget _buildEmptyTeamsCardFree() {
+  Widget _buildEmptyTeamsCardFree(BuildContext context, double paddingScale, double fontScale) {
     return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12 * paddingScale),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0 * paddingScale),
         child: Column(
           children: [
             Icon(
               Icons.people,
-              size: 48,
+              size: 48 * fontScale,
               color: Colors.grey[400],
             ),
-            const SizedBox(height: 8),
-            const Text(
+            SizedBox(height: 8 * paddingScale),
+            Text(
               'Belum ada tim',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 16 * fontScale,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
-            const Text(
+            SizedBox(height: 4 * paddingScale),
+            Text(
               'Gabung tim untuk berkolaborasi',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+              style: TextStyle(fontSize: 14 * fontScale, color: Colors.grey),
             ),
           ],
         ),
@@ -1039,15 +1236,20 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
     );
   }
 
-  Widget _buildTeamItemFree(TeamModel team) {
+  Widget _buildTeamItemFree(TeamModel team, BuildContext context, double paddingScale, double fontScale) {
     final teamService = Provider.of<TeamService>(context, listen: false);
+    // Menggunakan MediaQuery untuk mendapatkan lebar layar
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Menghitung lebar item berdasarkan lebar layar (sekitar 25% dari lebar layar)
+    final itemWidth = screenWidth * 0.25;
+    
     return SizedBox(
-      width: 100,
+      width: itemWidth,
       child: Card(
         elevation: 2,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.green.withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(12 * paddingScale),
+          side: BorderSide(color: Colors.green.withOpacity(0.3), width: 1 * paddingScale),
         ),
         child: InkWell(
           onTap: () {
@@ -1061,31 +1263,33 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
               ),
             );
           },
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12 * paddingScale),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 6.0),
+            padding: EdgeInsets.symmetric(vertical: 8.0 * paddingScale, horizontal: 6.0 * paddingScale),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 CircleAvatar(
+                  radius: 16 * fontScale,
                   backgroundColor: Colors.green,
                   child: Text(
                     team.name.isNotEmpty ? team.name[0].toUpperCase() : 'T',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
+                      fontSize: 14 * fontScale,
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6 * paddingScale),
                 Text(
                   team.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                    fontSize: 13 * fontScale,
                   ),
                 ),
                 FutureBuilder<String>(
@@ -1095,7 +1299,7 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
                     return Text(
                       leaderName,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 11 * fontScale,
                         color: Colors.grey[600],
                       ),
                       maxLines: 1,
@@ -1115,18 +1319,35 @@ class _FreePlanScreenState extends State<FreePlanScreen> {
 
 class _BulletPoint extends StatelessWidget {
   final String text;
+  final double paddingScale;
+  final double fontScale;
 
-  const _BulletPoint({required this.text});
+  const _BulletPoint({
+    required this.text,
+    this.paddingScale = 1.0,
+    this.fontScale = 1.0,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
+      padding: EdgeInsets.only(bottom: 4.0 * paddingScale),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('• ', style: TextStyle(fontWeight: FontWeight.bold)),
-          Expanded(child: Text(text)),
+          Text(
+            '• ',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14 * fontScale,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 14 * fontScale),
+            ),
+          ),
         ],
       ),
     );

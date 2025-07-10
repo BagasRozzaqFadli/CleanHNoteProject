@@ -4,8 +4,8 @@ class TeamNotification {
   final String userId;
   final String title;
   final String message;
-  final String type; // 'task_assigned', 'task_completed', 'team_invitation'
-  final String? relatedEntityId; // ID tugas atau undangan
+  final String notificationType; // 'task_assigned', 'task_completed', 'team_invitation'
+  final String? taskId; // ID tugas
   final bool isRead;
   final DateTime createdAt;
 
@@ -15,8 +15,8 @@ class TeamNotification {
     required this.userId,
     required this.title,
     required this.message,
-    required this.type,
-    this.relatedEntityId,
+    required this.notificationType,
+    this.taskId,
     required this.isRead,
     required this.createdAt,
   });
@@ -28,9 +28,9 @@ class TeamNotification {
       userId: json['user_id'] ?? '',
       title: json['title'] ?? '',
       message: json['message'] ?? '',
-      type: json['type'] ?? '',
-      relatedEntityId: json['related_entity_id'],
-      isRead: json['is_read'] ?? false,
+      notificationType: json['notification_type'] ?? '',
+      taskId: json['task_id'],
+      isRead: json['status'] == 'read',
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
   }
@@ -41,9 +41,9 @@ class TeamNotification {
       'user_id': userId,
       'title': title,
       'message': message,
-      'type': type,
-      'related_entity_id': relatedEntityId,
-      'is_read': isRead,
+      'notification_type': notificationType,
+      'task_id': taskId,
+      'status': isRead ? 'read' : 'unread',
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -54,8 +54,8 @@ class TeamNotification {
     String? userId,
     String? title,
     String? message,
-    String? type,
-    String? relatedEntityId,
+    String? notificationType,
+    String? taskId,
     bool? isRead,
     DateTime? createdAt,
   }) {
@@ -65,10 +65,10 @@ class TeamNotification {
       userId: userId ?? this.userId,
       title: title ?? this.title,
       message: message ?? this.message,
-      type: type ?? this.type,
-      relatedEntityId: relatedEntityId ?? this.relatedEntityId,
+      notificationType: notificationType ?? this.notificationType,
+      taskId: taskId ?? this.taskId,
       isRead: isRead ?? this.isRead,
       createdAt: createdAt ?? this.createdAt,
     );
   }
-} 
+}

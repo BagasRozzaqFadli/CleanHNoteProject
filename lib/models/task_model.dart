@@ -135,6 +135,18 @@ class TaskModel {
     };
   }
 
+  factory TaskModel.empty() {
+    return TaskModel(
+      id: '',
+      title: '',
+      description: '',
+      createdBy: '',
+      assignedTo: '',
+      dueDate: DateTime.now(),
+      taskType: TaskType.personal,
+    );
+  }
+
   factory TaskModel.fromMap(Map<String, dynamic> map) {
     DateTime? parseDateTime(dynamic value) {
       if (value == null) return null;
@@ -250,4 +262,4 @@ class TaskModel {
       completedAt: completedAt ?? this.completedAt,
     );
   }
-} 
+}

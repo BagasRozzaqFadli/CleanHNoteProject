@@ -168,6 +168,23 @@ async function updateCollections() {
                 ]
             },
             {
+                id: 'team_tasks',
+                name: 'Team_Tasks',
+                attributes: [
+                    { key: 'title', type: 'string', required: true },
+                    { key: 'description', type: 'string', required: true },
+                    { key: 'assigned_to', type: 'string', required: true },
+                    { key: 'team_id', type: 'string', required: true },
+                    { key: 'due_date', type: 'datetime', required: true },
+                    { key: 'status', type: 'string', required: true }, // pending, in_progress, completed, cancelled
+                    { key: 'priority', type: 'string', required: false }, // low, medium, high
+                    { key: 'created_by', type: 'string', required: true },
+                    { key: 'created_at', type: 'datetime', required: true },
+                    { key: 'updated_at', type: 'datetime', required: true },
+                    { key: 'completed_at', type: 'datetime', required: false }
+                ]
+            },
+            {
                 id: 'tasks',
                 name: 'Tasks',
                 attributes: [

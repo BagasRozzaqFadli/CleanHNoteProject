@@ -24,13 +24,13 @@
 
 ### Iterasi 3: Penugasan dan Notifikasi (1 Minggu)
 - Total Tasks: 5
-- Tasks Selesai: 0
-- Progress Iterasi: 0%
-  - [ ] Penunjukan tugas ke anggota
-  - [ ] Notifikasi penugasan
-  - [ ] Pengingat tugas
-  - [ ] Monitoring progress tim
-  - [ ] Laporan kinerja tim
+- Tasks Selesai: 5
+- Progress Iterasi: 100%
+  - [✅] Penunjukan tugas ke anggota
+  - [✅] Notifikasi penugasan
+  - [✅] Pengingat tugas
+  - [✅] Monitoring progress tim
+  - [✅] Laporan kinerja tim
 
 ### Iterasi 4: Finalisasi (1 Minggu)
 - Total Tasks: 5

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cleanhnoteapp/services/auth_services.dart';
 import 'package:appwrite/appwrite.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:cleanhnoteapp/utils/responsive_layout.dart';
+import 'package:cleanhnoteapp/utils/responsive_theme.dart';
+import 'package:cleanhnoteapp/widgets/responsive_builder.dart';
 
 class RegisterScreen extends StatefulWidget {
   @override
@@ -96,11 +100,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Menghitung skala responsif berdasarkan ukuran layar
+    final paddingScale = ResponsiveLayout.getPaddingScale(context);
+    final fontScale = ResponsiveLayout.getFontScale(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final responsivePadding = ResponsiveTheme.getResponsivePadding(context, EdgeInsets.all(16));
+    
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
-            padding: EdgeInsets.all(24),
+            padding: EdgeInsets.all(24 * paddingScale),
             child: Form(
               key: _formKey,
               child: Column(
@@ -108,28 +118,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 children: [
                   // Logo atau gambar aplikasi
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 40.0),
+                    padding: EdgeInsets.symmetric(vertical: 40.0 * paddingScale),
                     child: Column(
                       children: [
-                        Icon(
-                          Icons.task_alt,
-                          size: 80,
-                          color: Theme.of(context).primaryColor,
+                        SvgPicture.asset(
+                          'assets/images/task_alt_icon.svg',
+                          width: screenWidth * 0.2, // Responsif berdasarkan lebar layar
+                          height: screenWidth * 0.2, // Responsif berdasarkan lebar layar
+                          colorFilter: ColorFilter.mode(
+                            Theme.of(context).primaryColor,
+                            BlendMode.srcIn,
+                          ),
                         ),
-                        SizedBox(height: 16),
+                        SizedBox(height: 16 * paddingScale),
                         Text(
                           'CleanHNote',
                           style: TextStyle(
-                            fontSize: 28,
+                            fontSize: 28 * fontScale,
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).primaryColor,
                           ),
                         ),
-                        SizedBox(height: 8),
+                        SizedBox(height: 8 * paddingScale),
                         Text(
                           'Buat akun baru untuk memulai',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 16 * fontScale,
                             color: Colors.grey[600],
                           ),
                         ),
@@ -139,13 +153,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   
                   if (_errorMessage != null)
                     Container(
-                      padding: EdgeInsets.all(12),
-                      margin: EdgeInsets.only(bottom: 16),
+                      padding: EdgeInsets.all(12 * paddingScale),
+                      margin: EdgeInsets.only(bottom: 16 * paddingScale),
                       decoration: BoxDecoration(
                         color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(8 * paddingScale),
                         border: Border.all(
                           color: Colors.red.shade200,
+                          width: 1 * paddingScale,
                         ),
                       ),
                       child: Row(
@@ -153,13 +168,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           Icon(
                             Icons.error_outline,
                             color: Colors.red,
+                            size: 24 * fontScale,
                           ),
-                          SizedBox(width: 8),
+                          SizedBox(width: 8 * paddingScale),
                           Expanded(
                             child: Text(
                               _errorMessage!,
                               style: TextStyle(
                                 color: Colors.red.shade800,
+                                fontSize: 14 * fontScale,
                               ),
                             ),
                           ),
@@ -171,47 +188,77 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _nameController,
                     decoration: InputDecoration(
                       labelText: 'Nama Lengkap',
+                      labelStyle: TextStyle(fontSize: 16 * fontScale),
                       hintText: 'Masukkan nama lengkap Anda',
+                      hintStyle: TextStyle(fontSize: 14 * fontScale),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(10 * paddingScale),
+                        borderSide: BorderSide(width: 1 * paddingScale),
                       ),
-                      prefixIcon: Icon(Icons.person),
-                      contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      prefixIcon: Icon(
+                        Icons.person,
+                        size: 24 * fontScale,
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 16 * paddingScale, 
+                        horizontal: 16 * paddingScale
+                      ),
                     ),
+                    style: TextStyle(fontSize: 16 * fontScale),
                     validator: _validateName,
                     textInputAction: TextInputAction.next,
                   ),
-                  SizedBox(height: 16),
+                  SizedBox(height: 16 * paddingScale),
                   TextFormField(
                     controller: _emailController,
                     decoration: InputDecoration(
                       labelText: 'Email',
+                      labelStyle: TextStyle(fontSize: 16 * fontScale),
                       hintText: 'Masukkan email Anda',
+                      hintStyle: TextStyle(fontSize: 14 * fontScale),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(10 * paddingScale),
+                        borderSide: BorderSide(width: 1 * paddingScale),
                       ),
-                      prefixIcon: Icon(Icons.email),
-                      contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      prefixIcon: Icon(
+                        Icons.email,
+                        size: 24 * fontScale,
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 16 * paddingScale, 
+                        horizontal: 16 * paddingScale
+                      ),
                     ),
+                    style: TextStyle(fontSize: 16 * fontScale),
                     validator: _validateEmail,
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                   ),
-                  SizedBox(height: 16),
+                  SizedBox(height: 16 * paddingScale),
                   TextFormField(
                     controller: _passwordController,
                     decoration: InputDecoration(
                       labelText: 'Password',
+                      labelStyle: TextStyle(fontSize: 16 * fontScale),
                       hintText: 'Masukkan password Anda',
+                      hintStyle: TextStyle(fontSize: 14 * fontScale),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(10 * paddingScale),
+                        borderSide: BorderSide(width: 1 * paddingScale),
                       ),
-                      prefixIcon: Icon(Icons.lock),
-                      contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                      prefixIcon: Icon(
+                        Icons.lock,
+                        size: 24 * fontScale,
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 16 * paddingScale, 
+                        horizontal: 16 * paddingScale
+                      ),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword ? Icons.visibility_off : Icons.visibility,
                           color: Colors.grey,
+                          size: 24 * fontScale,
                         ),
                         onPressed: () {
                           setState(() {
@@ -220,46 +267,66 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         },
                       ),
                     ),
+                    style: TextStyle(fontSize: 16 * fontScale),
                     validator: _validatePassword,
                     obscureText: _obscurePassword,
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => _register(),
                   ),
-                  SizedBox(height: 24),
+                  SizedBox(height: 24 * paddingScale),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _register,
                     style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 16),
+                      padding: EdgeInsets.symmetric(vertical: 16 * paddingScale),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(10 * paddingScale),
                       ),
+                      minimumSize: Size(double.infinity, 48 * paddingScale),
                     ),
                     child: _isLoading
                         ? Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               SizedBox(
-                                height: 20,
-                                width: 20,
+                                height: 20 * fontScale,
+                                width: 20 * fontScale,
                                 child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                                  strokeWidth: 2 * paddingScale,
                                   color: Colors.white,
                                 ),
                               ),
-                              SizedBox(width: 10),
-                              Text('Mendaftar...'),
+                              SizedBox(width: 10 * paddingScale),
+                              Text(
+                                'Mendaftar...',
+                                style: TextStyle(fontSize: 16 * fontScale),
+                              ),
                             ],
                           )
-                        : Text('Daftar'),
+                        : Text(
+                            'Daftar',
+                            style: TextStyle(fontSize: 16 * fontScale),
+                          ),
                   ),
-                  SizedBox(height: 16),
+                  SizedBox(height: 16 * paddingScale),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Sudah punya akun?'),
+                      Text(
+                        'Sudah punya akun?',
+                        style: TextStyle(fontSize: 14 * fontScale),
+                      ),
                       TextButton(
                         onPressed: () => Navigator.pushReplacementNamed(context, '/login'),
-                        child: Text('Login'),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8 * paddingScale,
+                            vertical: 4 * paddingScale,
+                          ),
+                        ),
+                        child: Text(
+                          'Login',
+                          style: TextStyle(fontSize: 14 * fontScale),
+                        ),
                       ),
                     ],
                   ),

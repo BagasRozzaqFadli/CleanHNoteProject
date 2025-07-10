@@ -181,27 +181,33 @@ class _UserListScreenState extends State<UserListScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(user.email),
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'ID: ',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    const Text(
+                      'ID: ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 16),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _copyToClipboard(user.id),
+                    ),
+                  ],
                 ),
-                Expanded(
+                Padding(
+                  padding: const EdgeInsets.only(left: 8.0),
                   child: Text(
                     user.id,
                     style: const TextStyle(fontSize: 12),
-                    overflow: TextOverflow.ellipsis,
+                    softWrap: true,
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.copy, size: 16),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => _copyToClipboard(user.id),
                 ),
               ],
             ),
@@ -350,27 +356,31 @@ class _UserListScreenState extends State<UserListScreen> {
                   Text('Pengguna: ${user.name}'),
                   const SizedBox(height: 16),
                   const Text('Pilih Durasi:'),
-                  DropdownButton<int>(
-                    value: selectedMonths,
-                    onChanged: (value) {
-                      setState(() {
-                        selectedMonths = value!;
-                      });
-                    },
-                    items: const [
-                      DropdownMenuItem(
-                        value: 1,
-                        child: Text('1 Bulan - Rp 50.000'),
-                      ),
-                      DropdownMenuItem(
-                        value: 6,
-                        child: Text('6 Bulan - Rp 270.000 (Hemat 10%)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 12,
-                        child: Text('12 Bulan - Rp 480.000 (Hemat 20%)'),
-                      ),
-                    ],
+                  Container(
+                    width: double.infinity,
+                    child: DropdownButton<int>(
+                      isExpanded: true,
+                      value: selectedMonths,
+                      onChanged: (value) {
+                        setState(() {
+                          selectedMonths = value!;
+                        });
+                      },
+                      items: const [
+                        DropdownMenuItem(
+                          value: 1,
+                          child: Text('1 Bulan - Rp 50.000'),
+                        ),
+                        DropdownMenuItem(
+                          value: 6,
+                          child: Text('6 Bulan - Rp 270.000 (Hemat 10%)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 12,
+                          child: Text('12 Bulan - Rp 480.000 (Hemat 20%)'),
+                        ),
+                      ],
+                    ),
                   ),
                   if (isProcessing)
                     const Padding(
@@ -445,4 +455,4 @@ class _UserListScreenState extends State<UserListScreen> {
       },
     );
   }
-} 
+}
