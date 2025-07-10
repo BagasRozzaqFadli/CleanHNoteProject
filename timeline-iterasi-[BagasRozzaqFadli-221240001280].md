@@ -36,11 +36,11 @@
 - Total Tasks: 5
 - Tasks Selesai: 5
 - Progress Iterasi: 100%
-  - [✅] UI/UX dengan Material Design 3
-  - [✅] Pengujian menyeluruh
-  - [✅] Persiapan publikasi
-  - [✅] Optimasi performa
-  - [✅] Dokumentasi pengguna
+  - [] UI/UX dengan Material Design 3
+  - [] Pengujian menyeluruh
+  - [] Persiapan publikasi
+  - [] Optimasi performa
+  - [] Dokumentasi pengguna
 
 ## Breakdown Iterasi
 
